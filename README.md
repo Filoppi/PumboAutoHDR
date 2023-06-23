@@ -24,7 +24,7 @@ Use it if you prefer it. The "Highlights shoulder" settings only affect the inve
 For anything else, read the tooltip of each setting.
 
 # A decent preset
-![Image](https://ibb.co/2NcypKk)
+![Image](https://i.ibb.co/KwVX8yr/Application-Frame-Host-Fo-Ycuk-ZZ3-F.png)
 This preset was created for my local modded version of "Fallout: New Vegas" so it might not apply to other games.
 In general, I suggest setting the max output nits beyond 700 (even if your screen supports it) as it will likely just always be to bright.
 
