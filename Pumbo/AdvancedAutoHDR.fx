@@ -91,7 +91,7 @@ uniform uint AUTO_HDR_METHOD
   ui_category = "Auto HDR";
   ui_label    = "Auto HDR method";
   ui_type     = "combo";
-  ui_items    = "None\0By average (color conserving)\0By luminance (color conserving)\0By channel (more saturated)\0By max channel (color conserving)\0";
+  ui_items    = "None\0By channel average (color conserving) - RECCOMENDED\0By luminance (color conserving)\0By channel (more saturated)\0By max channel (color conserving)\0";
 > = 0;
 
 uniform float AUTO_HDR_SHOULDER_START_ALPHA
@@ -103,19 +103,17 @@ uniform float AUTO_HDR_SHOULDER_START_ALPHA
   ui_min = 0.f;
   ui_max = 1.f;
   ui_step = 0.01f;
-> = 0.18f; // Start from mid gray
+> = 0.18f; // Start from ~mid gray
 
 uniform float AUTO_HDR_MAX_NITS
 <
   ui_label = "Auto HDR target/max brightness";
   ui_category = "Auto HDR";
   ui_type = "drag";
-  ui_min =
-BT709_max_nits;
+  ui_min = BT709_max_nits;
   ui_max = 2000.f;
   ui_step = 1.f;
-> =
-BT709_max_nits;
+> = 400.f;
 
 uniform float AUTO_HDR_SHOULDER_POW
 <
@@ -126,7 +124,7 @@ uniform float AUTO_HDR_SHOULDER_POW
   ui_min = 1.f;
   ui_max = 10.f;
   ui_step = 0.05f;
-> = 2.5f;
+> = 3.333f;
 
 uniform float SHADOW_TUNING
 <
