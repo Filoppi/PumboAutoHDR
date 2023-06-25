@@ -8,6 +8,7 @@ Under normal conditions, this ReShade shader requires Lilium's DXVK fork, which 
  - Forcing Windows to interpret the image as an HDR one
 The fork can be found here:
 https://github.com/EndlesslyFlowering/dxvk/releases/
+Note that buffers need to be upgraded to float16 for scRGB HDR to engage, and ReShade needs to be installed for Vulkan.
 
 Additionally, this shader also directly works with games that natively support scRGB (RGBA16F) output, though generally these are already HDR so AutoHDR wouldn't be needed.
 SpecialK can also be used to enforce scRGB output.
