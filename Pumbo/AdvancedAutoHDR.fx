@@ -78,10 +78,10 @@ uniform uint INVERSE_TONEMAP_METHOD
 uniform float TONEMAPPER_WHITE_POINT
 <
   ui_label = "Tonemapper white point (in units)";
-  ui_tooltip = "Useful to invert the tonemapper. Has no effect at 1";
+  ui_tooltip = "Useful to invert the tonemapper. Increases saturation. Has no effect at 1";
   ui_category = "Inverse tone mapping";
   ui_type = "drag";
-  ui_min = 0.01f;
+  ui_min = 1.f;
   ui_max = 100.f;
   ui_step = 0.01f;
 > = 2.f;
@@ -91,7 +91,7 @@ uniform uint AUTO_HDR_METHOD
   ui_category = "Auto HDR";
   ui_label    = "Auto HDR method";
   ui_type     = "combo";
-  ui_items    = "None\0By channel average (color conserving) - RECCOMENDED\0By luminance (color conserving)\0By channel (more saturated)\0By max channel (color conserving)\0";
+  ui_items    = "None\0By channel average (color conserving) - RECCOMENDED\0By luminance (color conserving)\0By channel (increases saturation)\0By max channel (color conserving)\0";
 > = 0;
 
 uniform float AUTO_HDR_SHOULDER_START_ALPHA
@@ -103,7 +103,7 @@ uniform float AUTO_HDR_SHOULDER_START_ALPHA
   ui_min = 0.f;
   ui_max = 1.f;
   ui_step = 0.01f;
-> = 0.18f; // Start from ~mid gray
+> = 0.f;
 
 uniform float AUTO_HDR_MAX_NITS
 <
@@ -122,9 +122,9 @@ uniform float AUTO_HDR_SHOULDER_POW
   ui_category = "Auto HDR";
   ui_type = "drag";
   ui_min = 1.f;
-  ui_max = 10.f;
+  ui_max = 8.f;
   ui_step = 0.05f;
-> = 3.333f;
+> = 2.5f;
 
 uniform float SHADOW_TUNING
 <
@@ -237,13 +237,13 @@ void AdvancedAutoHDR(
         [unroll]
         for (int i = 0; i < 3; ++i)
         {
+            const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / SDRBrightnessScale, BT709_max_nits) / BT709_max_nits;
             if (SDRRatio[i] > AUTO_HDR_SHOULDER_START_ALPHA && AUTO_HDR_SHOULDER_START_ALPHA < 1.f)
             {
-                const float autoHDRRatio = 1.f - (max(1.f - SDRRatio[i], 0.f) / (1.f - AUTO_HDR_SHOULDER_START_ALPHA));
-                const float autoHDRMaxWhite = (AUTO_HDR_MAX_NITS / SDRBrightnessScale) / BT709_max_nits;
-                const float autoHDRExtraLuminance = (pow(autoHDRRatio, AUTO_HDR_SHOULDER_POW) * (autoHDRMaxWhite - 1.f)) / divisor[i];
-                const float autoHDRLuminance = SDRRatio[i] + autoHDRExtraLuminance;
-                autoHDRColor[i] *= autoHDRLuminance / SDRRatio[i];
+                const float autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio[i], 0.f) / (1.f - AUTO_HDR_SHOULDER_START_ALPHA));
+                const float autoHDRExtraRatio = (pow(autoHDRShoulderRatio, AUTO_HDR_SHOULDER_POW) * (autoHDRMaxWhite - 1.f)) / divisor[i];
+                const float autoHDRTotalRatio = SDRRatio[i] + autoHDRExtraRatio;
+                autoHDRColor[i] *= autoHDRTotalRatio / SDRRatio[i];
             }
         }
     }
