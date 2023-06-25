@@ -1,5 +1,5 @@
 # How to use
-Download and install the latest version of ReShade (e.g. 5.8+).
+Download the files in this repository and install the latest version of ReShade (e.g. 5.8+).
 Drop into the local "reshade-shaders\Shaders" folder.
 
 Under normal conditions, this ReShade shader requires Lilium's DXVK fork, which is able to force games to use scRGB (RGBA16F) textures as internal render targets and output, this allows for 3 things:
@@ -28,7 +28,10 @@ For anything else, read the tooltip of each setting.
 ![Image](https://gcdnb.pbrd.co/images/YzZICs8w7mrY.png?o=1)
 
 This preset was created for my local modded version of "Fallout: New Vegas" so it might not apply to other games.
-In general, I suggest to avoid setting the max output nits beyond 700 (even if your screen supports it) as it will likely just always be to bright.
+Some general suggestions:
+- "Auto HDR target/max brightness": avoid setting it beyond 700 nits (even if your screen supports it) as it will likely just always be to bright. This AutoHDR method is additive, so you don't want your picture to be unbalanced towards highlights.
+- "Auto HDR shoulder start alpha": the lower the better. Setting it to 0 can provide the best results as it prevents the point where AutoHDR starts being applied from being seen.
+
 
 # Credits
 Thanks to Lilium for the support
