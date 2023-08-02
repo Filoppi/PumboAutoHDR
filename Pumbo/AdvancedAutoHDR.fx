@@ -1,26 +1,28 @@
 #include "ReShade.fxh"
 #include "Color.fxh"
 
-uniform bool REMOVE_SRGB_GAMMA
+
+uniform uint IN_COLOR_SPACE
 <
-  ui_label = "Remove sRGB gamma";
-  ui_tooltip = "In case you forced the game to output on linear scRGB buffers without it acknowledging it,\nYou likely want to convert from gamma to linear space so it looks right in HDR";
+  ui_label    = "Input Color Space";
+  ui_type     = "combo";
+  ui_items    = "SDR sRGB\0SDR Rec.709 Gamma 2.2\0HDR scRGB\0HDR10 BT.2020 PQ\0";
+  ui_tooltip = "Specify the input color space.\nSome SDR games use sRGB gamma and some other use 2.2 gamma, pick the one that looks more correct.\nFor HDR, either pick scRGB or HDR10";
+  ui_category = "Calibration";
+> = 0;
+
+uniform bool IGNORE_SDR_GAMMA_OVER_1
+<
+  ui_label = "Ignore gamma on SDR colors beyond 1";
+  ui_tooltip = "Some games never really directly used the gamma formula for output, they just baked content and shaders to automatically look right on gamma screens.\nIf these games output values above 1, it's generally good to not undo the gamma curve on these colors";
+  ui_category = "Calibration";
+> = false;
+
+uniform bool FORCE_SCRGB_OUT_COLOR_SPACE
+<
+  ui_label = "Force scRGB Output Color Space";
   ui_category = "Calibration";
 > = true;
-
-uniform bool USE_2_2_GAMMA
-<
-  ui_label = "Use 2.2 gamma";
-  ui_tooltip = "Select in case the game used the `wrong` 2.2 gamma (some games use that instead of sRGB)";
-  ui_category = "Calibration";
-> = false;
-
-uniform bool IGNORE_GAMMA_OVER_1
-<
-  ui_label = "Ignore gamma on colors beyond 1";
-  ui_tooltip = "Some games never really directly used the gamma formula for output, they just baked content and shaders to automatically look right on gamma screens.\nIf these games output values above 1, it's generally good to not undo the gamma curve on them";
-  ui_category = "Calibration";
-> = false;
 
 uniform float SDR_WHITEPOINT_NITS
 <
@@ -158,12 +160,14 @@ void AdvancedAutoHDR(
     float3 fixedGammaColor = input;
     fixedGammaColor = clamp(fixedGammaColor, -65504.f, 65504.f);
 
-    if (REMOVE_SRGB_GAMMA)
+    if (IN_COLOR_SPACE == 0) // sRGB
+        fixedGammaColor = sRGB_to_linear(fixedGammaColor, IGNORE_SDR_GAMMA_OVER_1);
+    else if (IN_COLOR_SPACE == 1) // Rec.709 Gamma 2.2
+        fixedGammaColor = (IGNORE_SDR_GAMMA_OVER_1 && fixedGammaColor >= 1) ? fixedGammaColor : pow(fixedGammaColor, 2.2f);
+    else if (IN_COLOR_SPACE == 3) // HDR10 BT.2020 PQ
     {
-        if (USE_2_2_GAMMA)
-            fixedGammaColor = (IGNORE_GAMMA_OVER_1 && fixedGammaColor >= 1) ? fixedGammaColor : pow(fixedGammaColor, 2.2f);
-        else
-            fixedGammaColor = sRGB_to_linear(fixedGammaColor, IGNORE_GAMMA_OVER_1);
+        fixedGammaColor = PQ_to_linear(fixedGammaColor);
+        fixedGammaColor = BT2020_to_BT709(fixedGammaColor);
     }
 
     // Fix up negative luminance (imaginary/invalid colors)
@@ -207,6 +211,8 @@ void AdvancedAutoHDR(
     {
         float3 SDRRatio = 0.f;
         float3 divisor = 1.f;
+        
+        //TODO: delete all except average and channel?
         
         // By average
         if (AUTO_HDR_METHOD == 1)
@@ -271,6 +277,13 @@ void AdvancedAutoHDR(
     }
 
     displayMappedColor = fixNAN(displayMappedColor);
+
+    if (!FORCE_SCRGB_OUT_COLOR_SPACE && IN_COLOR_SPACE == 3)
+    {
+        displayMappedColor = BT709_to_BT2020(displayMappedColor);
+        displayMappedColor = linear_to_PQ(displayMappedColor);
+    }
+
     output = float4(displayMappedColor, 1.f);
 }
 

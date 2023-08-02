@@ -2,25 +2,27 @@
 #define K_BT2020 float3(0.2627f, 0.6780f, 0.0593f)
 
 static const float BT709_max_nits = 80.f;
+// SMPTE ST 2084 (Perceptual Quantization) is only defined until this amount of nits
+static const float HDR10_max_nits = 10000.f;
 // Linear BT.709 mid grey (it could also be ~0.215)
 static const float mid_gray = 0.18f;
 
 // sRGB gamma to linear (scRGB)
-float sRGB_to_linear(float v, bool ignoreAboveOne /*= false*/)
+float sRGB_to_linear(float color, bool ignoreAboveOne /*= false*/)
 {
-    float a = 0.055f;
+    const float a = 0.055f;
 
     [flatten]
-    if (ignoreAboveOne && v >= 1.f)
+    if (ignoreAboveOne && color >= 1.f)
     {
         // Nothing to do
     }
-    else if (v <= 0.04045f)
-        v = v / 12.92f;
+    else if (color <= 0.04045f)
+        color = color / 12.92f;
     else
-        v = pow((v + a) / (1.0f + a), 2.4f);
+        color = pow((color + a) / (1.0f + a), 2.4f);
 
-    return v;
+    return color;
 }
 
 float3 sRGB_to_linear(float3 colour, bool ignoreAboveOne /*= false*/)
@@ -29,6 +31,57 @@ float3 sRGB_to_linear(float3 colour, bool ignoreAboveOne /*= false*/)
 		sRGB_to_linear(colour.r, ignoreAboveOne),
 		sRGB_to_linear(colour.g, ignoreAboveOne),
 		sRGB_to_linear(colour.b, ignoreAboveOne));
+}
+
+static const float PQ_constant_N = (2610.0 / 4096.0 / 4.0);
+static const float PQ_constant_M = (2523.0 / 4096.0 * 128.0);
+static const float PQ_constant_C1 = (3424.0 / 4096.0);
+static const float PQ_constant_C2 = (2413.0 / 4096.0 * 32.0);
+static const float PQ_constant_C3 = (2392.0 / 4096.0 * 32.0);
+static const float PQMaxWhitePoint = HDR10_max_nits / BT709_max_nits;
+
+// PQ (Perceptual Quantizer - ST.2084) encode/decode used for HDR10 BT.2100
+float3 linear_to_PQ(float3 linearCol)
+{
+    linearCol /= PQMaxWhitePoint;
+	
+    float3 colToPow = pow(linearCol, PQ_constant_N);
+    float3 numerator = PQ_constant_C1 + PQ_constant_C2 * colToPow;
+    float3 denominator = 1.f + PQ_constant_C3 * colToPow;
+    float3 pq = pow(numerator / denominator, PQ_constant_M);
+
+    return pq;
+}
+
+float3 PQ_to_linear(float3 ST2084)
+{
+    float3 colToPow = pow(ST2084, 1.0f / PQ_constant_M);
+    float3 numerator = max(colToPow - PQ_constant_C1, 0.f);
+    float3 denominator = PQ_constant_C2 - (PQ_constant_C3 * colToPow);
+    float3 linearColor = pow(numerator / denominator, 1.f / PQ_constant_N);
+
+    linearColor *= PQMaxWhitePoint;
+
+    return linearColor;
+}
+
+static const float3x3 BT709_2_BT2020 = float3x3(
+	0.627401924722236, 0.329291971755002, 0.0433061035227622,
+	0.0690954897392608, 0.919544281267395, 0.0113602289933443,
+	0.0163937090881632, 0.0880281623979006, 0.895578128513936);
+static const float3x3 BT2020_2_BT709 = float3x3(
+	1.66049621914783, -0.587656444131135, -0.0728397750166941,
+	-0.124547095586012, 1.13289510924730, -0.00834801366128445,
+	-0.0181536813870718, -0.100597371685743, 1.11875105307281);
+
+float3 BT709_to_BT2020(float3 color)
+{
+    return mul(BT709_2_BT2020, color);
+}
+
+float3 BT2020_to_BT709(float3 color)
+{
+    return mul(BT2020_2_BT709, color);
 }
 
 // "L_white" of 2 matches simple Reinhard
@@ -48,13 +101,13 @@ float3 inv_tonemap_ReinhardPerComponent(float3 L, float L_white /*= 1.0f*/)
     return L;
 }
 
-// Linearly remaps colors from "0 to fInValue" onto "0 to fOutValue",
-// and "fInValue to fMaxValue" onto "fOutValue to fMaxValue".
+// Fully scales any color <= than "fInValue" by "fScaleValue",
+// and it scales increasingly less any other color in between "fInValue" and "fMaxValue".
 // This is not color preserving nor brightness preserving, as it's done per channel.
-float3 remapFromZero(float3 vHDRColor, float fInValue, float fOutValue, float fMaxValue)
+float3 remapFromZero(float3 vHDRColor, float fInValue, float fScaleValue, float fMaxValue)
 {
     float3 vAlpha = 1.0f - saturate((vHDRColor - fInValue) / (fMaxValue - fInValue));
-    vHDRColor *= lerp(1.0f, fOutValue, vAlpha);
+    vHDRColor *= lerp(1.0f, fScaleValue, vAlpha);
     return vHDRColor;
 }
 
