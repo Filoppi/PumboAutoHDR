@@ -1,7 +1,22 @@
 #include "ReShade.fxh"
 #include "Color.fxh"
 
+#define COLOR_SPACE_UNKNOWN     0
+#define COLOR_SPACE_SRGB        1
+#define COLOR_SPACE_SCRGB       2
+#define COLOR_SPACE_BT2020_PQ   3
 
+#if BUFFER_COLOR_SPACE == COLOR_SPACE_SRGB
+  #define ACTUAL_COLOR_SPACE 0
+#elif BUFFER_COLOR_SPACE == COLOR_SPACE_SCRGB
+  #define ACTUAL_COLOR_SPACE 2
+#elif BUFFER_COLOR_SPACE == COLOR_SPACE_BT2020_PQ
+  #define ACTUAL_COLOR_SPACE 3
+#else
+  #define ACTUAL_COLOR_SPACE 0
+#endif
+
+// We don't default to "ACTUAL_COLOR_SPACE" here as if we are upgrading the backbuffer, we'd detect the wrong value
 uniform uint IN_COLOR_SPACE
 <
   ui_label    = "Input Color Space";
