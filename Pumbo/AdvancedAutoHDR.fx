@@ -143,6 +143,17 @@ uniform float AUTO_HDR_SHOULDER_POW
   ui_step = 0.05f;
 > = 2.5f;
 
+uniform float BLACK_FLOOR_LUMINANCE
+<
+  ui_label = "Black floor luminance";
+  ui_tooltip = "Fixes raised black floors by remapping (by luminance) colors";
+  ui_category = "Fine tuning";
+  ui_type = "drag";
+  ui_min = 0.0f;
+  ui_max = mid_gray;
+  ui_step = 0.000001f;
+> = 0.f;
+
 uniform float SHADOW_TUNING
 <
   ui_label = "Shadow";
@@ -188,15 +199,26 @@ void AdvancedAutoHDR(
     // Fix up negative luminance (imaginary/invalid colors)
     if (luminance(fixedGammaColor) < 0.f)
         fixedGammaColor = float3(0.f, 0.f, 0.f);
-
-#if 0 // Remap shadows (per channel)
+    
+    // Fix raised blacks floor
     float3 fineTunedColor = fixedGammaColor;
+    // Just do it by luminance for now, even if average or per channel might be better
+    const float preRaisedBlacksFixLuminance = luminance(fineTunedColor);
+    if (preRaisedBlacksFixLuminance > 0.f)
+    {
+        const float postRaisedBlacksFixLuminance = max(preRaisedBlacksFixLuminance - BLACK_FLOOR_LUMINANCE, 0.f);
+        fineTunedColor *= (postRaisedBlacksFixLuminance / preRaisedBlacksFixLuminance) * (1.f / (1.f - BLACK_FLOOR_LUMINANCE));
+    }
+    
+#if 0 // Remap shadows (per channel)
     fineTunedColor = remapFromZero(fineTunedColor, 0.f, SHADOW_TUNING, mid_gray * 0.5f);
 #else // Remap shadows (luminance based)
-    float3 fineTunedColor = fixedGammaColor;
-    const float3 preFineTuningLuminance = luminance(fineTunedColor); // Use float3 for simplicity
-    const float postFineTuningLuminance = remapFromZero(preFineTuningLuminance, 0.f, SHADOW_TUNING, mid_gray * 0.5f).x;
-    fineTunedColor *= preFineTuningLuminance / postFineTuningLuminance;
+    const float preFineTuningLuminance = luminance(fineTunedColor);
+    if (preFineTuningLuminance > 0.f)
+    {
+        const float postFineTuningLuminance = remapFromZero(preFineTuningLuminance.xxx, 0.f, SHADOW_TUNING, mid_gray * 0.5f).x;
+        fineTunedColor *= postFineTuningLuminance / preFineTuningLuminance;
+    }
 #endif
 
     float3 fixTonemapColor = fineTunedColor;
@@ -274,6 +296,7 @@ void AdvancedAutoHDR(
 
     fineTunedColor = displayMappedColor;
     float HDRLuminance = luminance(displayMappedColor);
+    // Note: this is influenced by the AutoHDR params and by "SDRBrightnessScale"
     if (EXTRA_HDR_SATURATION > 0.f && HDRLuminance > 0.f)
     {
         fineTunedColor = expandGamut(fineTunedColor, EXTRA_HDR_SATURATION);
