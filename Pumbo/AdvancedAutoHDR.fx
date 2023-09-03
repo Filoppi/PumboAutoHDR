@@ -21,7 +21,7 @@ uniform uint IN_COLOR_SPACE
 <
   ui_label    = "Input Color Space";
   ui_type     = "combo";
-  ui_items    = "SDR sRGB\0SDR Rec.709 Gamma 2.2\0HDR scRGB\0HDR10 BT.2020 PQ\0";
+  ui_items    = "SDR sRGB\0SDR Rec.709 Gamma 2.2\0SDR Rec.709 Gamma 2.4\0HDR scRGB\0HDR10 BT.2020 PQ\0";
   ui_tooltip = "Specify the input color space.\nSome SDR games use sRGB gamma and some other use 2.2 gamma, pick the one that looks more correct.\nFor HDR, either pick scRGB or HDR10";
   ui_category = "Calibration";
 > = 0;
@@ -33,11 +33,14 @@ uniform bool IGNORE_SDR_GAMMA_OVER_1
   ui_category = "Calibration";
 > = false;
 
-uniform bool FORCE_SCRGB_OUT_COLOR_SPACE
+uniform uint OUT_COLOR_SPACE
 <
-  ui_label = "Force scRGB Output Color Space";
+  ui_label    = "Output Color Space";
+  ui_type     = "combo";
+  ui_items    = "Auto\0HDR scRGB\0HDR10 BT.2020 PQ\0";
+  ui_tooltip = "Specify the output color space";
   ui_category = "Calibration";
-> = true;
+> = 0;
 
 uniform float SDR_WHITEPOINT_NITS
 <
@@ -190,7 +193,9 @@ void AdvancedAutoHDR(
         fixedGammaColor = sRGB_to_linear(fixedGammaColor, IGNORE_SDR_GAMMA_OVER_1);
     else if (IN_COLOR_SPACE == 1) // Rec.709 Gamma 2.2
         fixedGammaColor = (IGNORE_SDR_GAMMA_OVER_1 && fixedGammaColor >= 1) ? fixedGammaColor : pow(fixedGammaColor, 2.2f);
-    else if (IN_COLOR_SPACE == 3) // HDR10 BT.2020 PQ
+    else if (IN_COLOR_SPACE == 2) // Rec.709 Gamma 2.4
+        fixedGammaColor = (IGNORE_SDR_GAMMA_OVER_1 && fixedGammaColor >= 1) ? fixedGammaColor : pow(fixedGammaColor, 2.4f);
+    else if (IN_COLOR_SPACE == 4) // HDR10 BT.2020 PQ
     {
         fixedGammaColor = PQ_to_linear(fixedGammaColor);
         fixedGammaColor = BT2020_to_BT709(fixedGammaColor);
@@ -316,7 +321,7 @@ void AdvancedAutoHDR(
 
     displayMappedColor = fixNAN(displayMappedColor);
 
-    if (!FORCE_SCRGB_OUT_COLOR_SPACE && IN_COLOR_SPACE == 3)
+    if ((OUT_COLOR_SPACE == 0 && IN_COLOR_SPACE == 4) || OUT_COLOR_SPACE == 2)
     {
         displayMappedColor = BT709_to_BT2020(displayMappedColor);
         displayMappedColor = linear_to_PQ(displayMappedColor);
