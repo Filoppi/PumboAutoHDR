@@ -1,5 +1,5 @@
 # How to use
-Download the files in this repository and install the latest version of ReShade (e.g. 5.8+).
+Download the files in this repository (github allows to download a full zip) and install the latest version of ReShade (e.g. 5.8+).
 Drop into the local "reshade-shaders\Shaders" folder.
 
 Under normal conditions, this ReShade shader requires Lilium's DXVK fork, which is able to force games to use scRGB (RGBA16F) textures as internal render targets and output, this allows for 3 things:
