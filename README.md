@@ -31,13 +31,16 @@ This shader can also be used as an additional clipping preventing tonemapping pa
 For anything else, read the tooltip of each setting.
 
 # A decent preset
-![Image](https://gcdnb.pbrd.co/images/YzZICs8w7mrY.png?o=1)
 
-This preset was created for my local modded version of "Fallout: New Vegas" so it might not apply to other games.
+The default values are already calibrated to look decent under most cases.
 Some general suggestions:
 - "Auto HDR target/max brightness": avoid setting it beyond ~750 nits (even if your screen supports it) as it will likely just always be too bright. This AutoHDR method is additive, so you don't want your picture to be unbalanced towards highlights.
 - "Auto HDR shoulder start alpha": the lower the better. Setting it to 0 can provide the best results as it prevents the point where AutoHDR starts being applied from being seen.
 
+# Screenshot
+
+![Image](https://gcdnb.pbrd.co/images/YzZICs8w7mrY.png?o=1)
+(old preset)
 
 # Credits
 Thanks to Lilium for the support
