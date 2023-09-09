@@ -44,7 +44,7 @@ uniform uint OUT_COLOR_SPACE
 
 uniform float SDR_WHITEPOINT_NITS
 <
-  ui_label = "SDR white point (paper white) nits";
+  ui_label = "SDR white point (paper white) nits (neutral at 80)";
   ui_type = "drag";
   ui_category = "Calibration";
   ui_min = 1.f;
@@ -58,8 +58,7 @@ uniform float HDR_MAX_NITS
   ui_label = "HDR display max nits";
   ui_category = "Calibration";
   ui_type = "drag";
-  ui_min =
-BT709_max_nits;
+  ui_min = BT709_max_nits;
   ui_max = 10000.f;
   ui_step = 1.f;
 > = 750.f;
@@ -111,7 +110,7 @@ uniform uint AUTO_HDR_METHOD
   ui_category = "Auto HDR";
   ui_label    = "Auto HDR method";
   ui_type     = "combo";
-  ui_items    = "None\0By channel average (color conserving) - RECCOMENDED\0By luminance (color conserving)\0By channel (increases saturation)\0By max channel (color conserving)\0";
+  ui_items    = "None\0By luminance (color conserving) - RECCOMENDED\0By channel average (color conserving)\0By channel (increases saturation)\0By max channel (color conserving)\0";
 > = 0;
 
 uniform float AUTO_HDR_SHOULDER_START_ALPHA
@@ -256,15 +255,15 @@ void AdvancedAutoHDR(
         
         //TODO: delete all except average and channel?
         
-        // By average
+        // By luminance
         if (AUTO_HDR_METHOD == 1)
         {
-            SDRRatio = average(autoHDRColor);
+            SDRRatio = luminance(autoHDRColor);
         }
-        // By luminance
+        // By average
         else if (AUTO_HDR_METHOD == 2)
         {
-            SDRRatio = luminance(autoHDRColor);
+            SDRRatio = average(autoHDRColor);
         }
         // By channel
         else if (AUTO_HDR_METHOD == 3)
