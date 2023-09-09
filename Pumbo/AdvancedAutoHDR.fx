@@ -1,30 +1,36 @@
 #include "ReShade.fxh"
 #include "Color.fxh"
 
-#define COLOR_SPACE_UNKNOWN     0
-#define COLOR_SPACE_SRGB        1
-#define COLOR_SPACE_SCRGB       2
-#define COLOR_SPACE_BT2020_PQ   3
+// These are from the "color_space" enum in ReShade
+#define RESHADE_COLOR_SPACE_UNKNOWN     0
+#define RESHADE_COLOR_SPACE_SRGB        1
+#define RESHADE_COLOR_SPACE_SCRGB       2
+#define RESHADE_COLOR_SPACE_BT2020_PQ   3
 
-#if BUFFER_COLOR_SPACE == COLOR_SPACE_SRGB
-  #define ACTUAL_COLOR_SPACE 0
-#elif BUFFER_COLOR_SPACE == COLOR_SPACE_SCRGB
-  #define ACTUAL_COLOR_SPACE 2
-#elif BUFFER_COLOR_SPACE == COLOR_SPACE_BT2020_PQ
-  #define ACTUAL_COLOR_SPACE 3
+// "BUFFER_COLOR_SPACE" is defined by ReShade.
+// "ACTUAL_COLOR_SPACE" uses the enum values defined in "IN_COLOR_SPACE".
+#if BUFFER_COLOR_SPACE == RESHADE_COLOR_SPACE_SRGB
+  #define ACTUAL_COLOR_SPACE 1
+#elif BUFFER_COLOR_SPACE == RESHADE_COLOR_SPACE_SCRGB
+  #define ACTUAL_COLOR_SPACE 4
+#elif BUFFER_COLOR_SPACE == RESHADE_COLOR_SPACE_BT2020_PQ
+  #define ACTUAL_COLOR_SPACE 5
 #else
   #define ACTUAL_COLOR_SPACE 0
 #endif
 
-// We don't default to "ACTUAL_COLOR_SPACE" here as if we are upgrading the backbuffer, we'd detect the wrong value
+// This uses the enum values defined in "IN_COLOR_SPACE"
+#define DEFAULT_COLOR_SPACE 1
+
+// We don't default to "Auto" here as if we are upgrading the backbuffer, we'd detect the wrong value
 uniform uint IN_COLOR_SPACE
 <
   ui_label    = "Input Color Space";
   ui_type     = "combo";
-  ui_items    = "SDR sRGB\0SDR Rec.709 Gamma 2.2\0SDR Rec.709 Gamma 2.4\0HDR scRGB\0HDR10 BT.2020 PQ\0";
+  ui_items    = "Auto\0SDR sRGB\0SDR Rec.709 Gamma 2.2\0SDR Rec.709 Gamma 2.4\0HDR scRGB\0HDR10 BT.2020 PQ\0";
   ui_tooltip = "Specify the input color space.\nSome SDR games use sRGB gamma and some other use 2.2 gamma, pick the one that looks more correct.\nFor HDR, either pick scRGB or HDR10";
   ui_category = "Calibration";
-> = 0;
+> = DEFAULT_COLOR_SPACE;
 
 uniform bool IGNORE_SDR_GAMMA_OVER_1
 <
@@ -187,14 +193,23 @@ void AdvancedAutoHDR(
 
     float3 fixedGammaColor = input;
     fixedGammaColor = clamp(fixedGammaColor, -65504.f, 65504.f);
+    
+    uint inColorSpace = IN_COLOR_SPACE;
+    if (inColorSpace == 0) // Auto selection
+    {
+        if (ACTUAL_COLOR_SPACE == 0) // Fall back on default if the actual color space is unknown
+            inColorSpace = DEFAULT_COLOR_SPACE;
+        else
+            inColorSpace = ACTUAL_COLOR_SPACE;
+    }
 
-    if (IN_COLOR_SPACE == 0) // sRGB
+    if (inColorSpace == 0 || inColorSpace == 1) // sRGB (and Auto)
         fixedGammaColor = sRGB_to_linear(fixedGammaColor, IGNORE_SDR_GAMMA_OVER_1);
-    else if (IN_COLOR_SPACE == 1) // Rec.709 Gamma 2.2
+    else if (inColorSpace == 2) // Rec.709 Gamma 2.2
         fixedGammaColor = (IGNORE_SDR_GAMMA_OVER_1 && fixedGammaColor >= 1) ? fixedGammaColor : pow(fixedGammaColor, 2.2f);
-    else if (IN_COLOR_SPACE == 2) // Rec.709 Gamma 2.4
+    else if (inColorSpace == 3) // Rec.709 Gamma 2.4
         fixedGammaColor = (IGNORE_SDR_GAMMA_OVER_1 && fixedGammaColor >= 1) ? fixedGammaColor : pow(fixedGammaColor, 2.4f);
-    else if (IN_COLOR_SPACE == 4) // HDR10 BT.2020 PQ
+    else if (inColorSpace == 5) // HDR10 BT.2020 PQ
     {
         fixedGammaColor = PQ_to_linear(fixedGammaColor);
         fixedGammaColor = BT2020_to_BT709(fixedGammaColor);
@@ -320,7 +335,7 @@ void AdvancedAutoHDR(
 
     displayMappedColor = fixNAN(displayMappedColor);
 
-    if ((OUT_COLOR_SPACE == 0 && IN_COLOR_SPACE == 4) || OUT_COLOR_SPACE == 2)
+    if ((OUT_COLOR_SPACE == 0 && inColorSpace == 4) || OUT_COLOR_SPACE == 2)
     {
         displayMappedColor = BT709_to_BT2020(displayMappedColor);
         displayMappedColor = linear_to_PQ(displayMappedColor);
