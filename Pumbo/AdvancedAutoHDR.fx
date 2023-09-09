@@ -28,7 +28,7 @@ uniform uint IN_COLOR_SPACE
   ui_label    = "Input Color Space";
   ui_type     = "combo";
   ui_items    = "Auto\0SDR sRGB\0SDR Rec.709 Gamma 2.2\0SDR Rec.709 Gamma 2.4\0HDR scRGB\0HDR10 BT.2020 PQ\0";
-  ui_tooltip = "Specify the input color space.\nSome SDR games use sRGB gamma and some other use 2.2 gamma, pick the one that looks more correct.\nFor HDR, either pick scRGB or HDR10";
+  ui_tooltip = "Specify the input color space (Auto doesn't always work right).\nSome SDR games use sRGB gamma and some other use 2.2 gamma, pick the one that looks more correct.\nFor HDR, either pick scRGB or HDR10";
   ui_category = "Calibration";
 > = DEFAULT_COLOR_SPACE;
 
@@ -52,8 +52,9 @@ uniform uint OUT_COLOR_SPACE
 
 uniform float SDR_WHITEPOINT_NITS
 <
-  ui_label = "SDR white point (paper white) nits (neutral at 80)";
+  ui_label = "SDR white point (paper white) nits";
   ui_type = "drag";
+  ui_tooltip = "SDR is neutral at 80 nits, though for most viewing conditions 200 is a good starting value";
   ui_category = "Calibration";
   ui_min = 1.f;
   ui_max = 500.f;
@@ -64,6 +65,7 @@ BT709_max_nits;
 uniform float HDR_MAX_NITS
 <
   ui_label = "HDR display max nits";
+  ui_tooltip = "This is used by HDR tonemapping. Set it equal or higher the AutoHDR max nits to ignore it and avoid double tonemapping.";
   ui_category = "Calibration";
   ui_type = "drag";
   ui_min = BT709_max_nits;
@@ -93,26 +95,6 @@ uniform float HIGHLIGHTS_SHOULDER_POW
   ui_step = 0.05f;
 > = 1.f;
 
-uniform uint INVERSE_TONEMAP_METHOD
-<
-  ui_category = "Inverse tone mapping";
-  ui_label    = "Inverse tonemap method";
-  ui_tooltip  = "Do not use with Auto HDR";
-  ui_type     = "combo";
-  ui_items    = "None\0Advanced Reinhard by channel\0";
-> = 0;
-
-uniform float TONEMAPPER_WHITE_POINT
-<
-  ui_label = "Tonemapper white point (in units)";
-  ui_tooltip = "Useful to invert the tonemapper. Increases saturation. Has no effect at 1";
-  ui_category = "Inverse tone mapping";
-  ui_type = "drag";
-  ui_min = 1.f;
-  ui_max = 100.f;
-  ui_step = 0.01f;
-> = 2.f;
-
 uniform uint AUTO_HDR_METHOD
 <
   ui_category = "Auto HDR";
@@ -135,6 +117,7 @@ uniform float AUTO_HDR_SHOULDER_START_ALPHA
 uniform float AUTO_HDR_MAX_NITS
 <
   ui_label = "Auto HDR target/max brightness";
+  ui_tooltip = "Depending on the other AutoHDR settings, going too bright (e.g. beyond the 600-1000 nits range), can lead to weird results, as we are still limited by an SDR source image";
   ui_category = "Auto HDR";
   ui_type = "drag";
   ui_min = BT709_max_nits;
@@ -153,10 +136,30 @@ uniform float AUTO_HDR_SHOULDER_POW
   ui_step = 0.05f;
 > = 2.5f;
 
+uniform uint INVERSE_TONEMAP_METHOD
+<
+  ui_category = "Inverse tone mapping";
+  ui_label    = "Inverse tonemap method";
+  ui_tooltip  = "Do not use with Auto HDR; it's a more bare bones version of it";
+  ui_type     = "combo";
+  ui_items    = "None\0Advanced Reinhard by channel\0";
+> = 0;
+
+uniform float TONEMAPPER_WHITE_POINT
+<
+  ui_label = "Tonemapper white point (in units)";
+  ui_tooltip = "Useful to invert the tonemapper. Increases saturation. Has no effect at 1";
+  ui_category = "Inverse tone mapping";
+  ui_type = "drag";
+  ui_min = 1.f;
+  ui_max = 100.f;
+  ui_step = 0.01f;
+> = 2.f;
+
 uniform float BLACK_FLOOR_LUMINANCE
 <
   ui_label = "Black floor luminance";
-  ui_tooltip = "Fixes raised black floors by remapping (by luminance) colors";
+  ui_tooltip = "Fixes raised black floors by remapping colors (by luminance)";
   ui_category = "Fine tuning";
   ui_type = "drag";
   ui_min = 0.0f;
