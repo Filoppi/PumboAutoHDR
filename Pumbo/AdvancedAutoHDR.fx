@@ -32,12 +32,14 @@ uniform uint IN_COLOR_SPACE
   ui_category = "Calibration";
 > = DEFAULT_COLOR_SPACE;
 
-uniform bool IGNORE_SDR_GAMMA_OVER_1
+uniform uint OVERBRIGHT_PIXELS_BEHAVIOUR
 <
-  ui_label = "Ignore gamma on SDR colors beyond 1";
-  ui_tooltip = "Some games never really directly used the gamma formula for output, they just baked content and shaders to automatically look right on gamma screens.\nIf these games output values above 1, it's generally good to not undo the gamma curve on these colors";
+  ui_label    = "Overbright pixels behaviour";
+  ui_type     = "combo";
+  ui_items    = "Apply Gamma\0Ignore Gamma\0Clip\0";
+  ui_tooltip = "When forcing HDR (float) buffers on SDR games, they can occasionally output colors brighter than 1.\nThis dictates how we should react to them. Pick what looks best";
   ui_category = "Calibration";
-> = false;
+> = 0;
 
 uniform uint OUT_COLOR_SPACE
 <
@@ -202,17 +204,31 @@ void AdvancedAutoHDR(
         else
             inColorSpace = ACTUAL_COLOR_SPACE;
     }
+    
+    const bool ignoreOverbrightPixelsGamma = OVERBRIGHT_PIXELS_BEHAVIOUR == 1;
+    const bool clipOverbrightPixels = OVERBRIGHT_PIXELS_BEHAVIOUR == 2;
 
     if (inColorSpace == 0 || inColorSpace == 1) // sRGB (and Auto)
-        fixedGammaColor = sRGB_to_linear(fixedGammaColor, IGNORE_SDR_GAMMA_OVER_1);
-    else if (inColorSpace == 2) // Rec.709 Gamma 2.2
-        fixedGammaColor = (IGNORE_SDR_GAMMA_OVER_1 && fixedGammaColor >= 1) ? fixedGammaColor : pow(fixedGammaColor, 2.2f);
-    else if (inColorSpace == 3) // Rec.709 Gamma 2.4
-        fixedGammaColor = (IGNORE_SDR_GAMMA_OVER_1 && fixedGammaColor >= 1) ? fixedGammaColor : pow(fixedGammaColor, 2.4f);
+        fixedGammaColor = sRGB_to_linear(fixedGammaColor, ignoreOverbrightPixelsGamma);
+    else if (inColorSpace == 2 || inColorSpace == 3) // Rec.709 Gamma 2.2 | Rec.709 Gamma 2.4
+    {
+        const float gamma = (inColorSpace == 2) ? 2.2f : 2.4f;
+        
+        [unroll]
+        for (int i = 0; i < 3; ++i)
+            fixedGammaColor[i] = (ignoreOverbrightPixelsGamma && fixedGammaColor[i] >= 1.f) ? fixedGammaColor[i] : pow(fixedGammaColor[i], gamma);
+    }
     else if (inColorSpace == 5) // HDR10 BT.2020 PQ
     {
-        fixedGammaColor = PQ_to_linear(fixedGammaColor);
+        fixedGammaColor = PQ_to_linear(fixedGammaColor); // We use sRGB white point (80 nits, not 100)
         fixedGammaColor = BT2020_to_BT709(fixedGammaColor);
+    }
+    
+    if (clipOverbrightPixels)
+    {
+        [unroll]
+        for (int i = 0; i < 3; ++i)
+            fixedGammaColor[i] = min(fixedGammaColor[i], 1.f);
     }
 
     // Fix up negative luminance (imaginary/invalid colors)
