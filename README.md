@@ -12,7 +12,7 @@ Note that buffers need to be upgraded to float16 for scRGB HDR to engage, and Re
 
 Additionally, this shader also directly works with games that natively support scRGB (RGBA16F) output, though generally these are already HDR so AutoHDR wouldn't be needed.
 SpecialK can also be used to enforce scRGB output.
-The AddOn from this similar ReShade https://github.com/MajorPainTheCactus/AutoHDR-ReShade/ can also be used to enforce HDR output on some games.
+The AddOn from this similar ReShade https://github.com/EndlesslyFlowering/AutoHDR-ReShade (original by MajorPainTheCactus) can also be used to enforce HDR output on some games.
 Some games, like Starfield, support mods to force scRGB output even if the game is still rendering in SDR. This shader can be directly used with these.
 
 # How does this work
