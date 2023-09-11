@@ -59,8 +59,7 @@ uniform float SDR_WHITEPOINT_NITS
   ui_min = 1.f;
   ui_max = 500.f;
   ui_step = 1.f;
-> =
-BT709_max_nits;
+> = BT709_max_nits;
 
 uniform float HDR_MAX_NITS
 <
@@ -142,13 +141,13 @@ uniform uint INVERSE_TONEMAP_METHOD
   ui_label    = "Inverse tonemap method";
   ui_tooltip  = "Do not use with Auto HDR; it's a more bare bones version of it";
   ui_type     = "combo";
-  ui_items    = "None\0Advanced Reinhard by channel\0";
+  ui_items    = "None\0Advanced Reinhard by channel\0ACES Filmic\0";
 > = 0;
 
 uniform float TONEMAPPER_WHITE_POINT
 <
   ui_label = "Tonemapper white point (in units)";
-  ui_tooltip = "Useful to invert the tonemapper. Increases saturation. Has no effect at 1";
+  ui_tooltip = "Used as parameter by some tonemappers. Increases saturation. Has no effect at 1";
   ui_category = "Inverse tone mapping";
   ui_type = "drag";
   ui_min = 1.f;
@@ -260,12 +259,21 @@ void AdvancedAutoHDR(
 #endif
 
     float3 fixTonemapColor = fineTunedColor;
-    if (INVERSE_TONEMAP_METHOD > 0 && TONEMAPPER_WHITE_POINT != 1.0f) // Reinhard has no effect with a white point of 1
+    if (INVERSE_TONEMAP_METHOD > 0)
     {
         if (INVERSE_TONEMAP_METHOD == 1) // Advanced Reinhard - Component based
+        {
             fixTonemapColor = inv_tonemap_ReinhardPerComponent(fixTonemapColor, TONEMAPPER_WHITE_POINT);
+            
+            // Re-map the image to roughly keep the same average brightness
+            fixTonemapColor /= inv_tonemap_ReinhardPerComponent(float3(mid_gray, mid_gray, mid_gray), TONEMAPPER_WHITE_POINT) / mid_gray;
+        }
+        else if (INVERSE_TONEMAP_METHOD == 2) // ACES Filmic
+        {
+            fixTonemapColor = inv_ACES_Filmic(fixTonemapColor);
+        }
 #if 0 // Disabled as it's unlikely to ever have been used by SDR games and it looks ugly
-        else if (INVERSE_TONEMAP_METHOD == 2) // Advanced Reinhard - Luminance based
+        else if (INVERSE_TONEMAP_METHOD == 3) // Advanced Reinhard - Luminance based
         {
             const float PreTonemapLuminance = luminance(fixTonemapColor);
             const float PostTonemapLuminance = inv_tonemap_ReinhardPerComponent(PreTonemapLuminance, TONEMAPPER_WHITE_POINT).r;
@@ -273,9 +281,6 @@ void AdvancedAutoHDR(
         }
 #endif
         //TODO: add some other inverse tonemappers and SpecialK Perceptual Boost
-        
-        // Re-map the image to roughly keep the same average brightness
-        fixTonemapColor /= inv_tonemap_ReinhardPerComponent(float3(mid_gray, mid_gray, mid_gray), TONEMAPPER_WHITE_POINT) / mid_gray;
     }
 
     const float SDRBrightnessScale = SDR_WHITEPOINT_NITS / BT709_max_nits;

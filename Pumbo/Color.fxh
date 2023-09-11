@@ -101,6 +101,26 @@ float3 inv_tonemap_ReinhardPerComponent(float3 L, float L_white /*= 1.0f*/)
     return L;
 }
 
+float3 inv_ACES_Filmic(float3 color)
+{
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    // OG formula:
+    // return (color * ((a * color) + b)) / (color * ((c * color) + d) + e);
+    
+    float3 fixed_numerator = (-d * color) + b;
+    float variable_numerator_part1 = (d * color) - b;
+    float3 variable_numerator = sqrt((variable_numerator_part1 * variable_numerator_part1) - (4.f * e * color * ((c * color) - a)));
+    float3 denominator = 2.f * ((c * color) - a);
+    float3 result1 = (fixed_numerator + variable_numerator) / denominator;
+    float3 result2 = (fixed_numerator - variable_numerator) / denominator;
+    color = max(result1, result2);
+    return color;
+}
+
 // Fully scales any color <= than "fInValue" by "fScaleValue",
 // and it scales increasingly less any other color in between "fInValue" and "fMaxValue".
 // This is not color preserving nor brightness preserving, as it's done per channel.
