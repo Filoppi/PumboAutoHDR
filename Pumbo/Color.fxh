@@ -112,7 +112,7 @@ float3 inv_ACES_Filmic(float3 color)
     // return (color * ((a * color) + b)) / (color * ((c * color) + d) + e);
     
     float3 fixed_numerator = (-d * color) + b;
-    float variable_numerator_part1 = (d * color) - b;
+    float3 variable_numerator_part1 = (d * color) - b;
     float3 variable_numerator = sqrt((variable_numerator_part1 * variable_numerator_part1) - (4.f * e * color * ((c * color) - a)));
     float3 denominator = 2.f * ((c * color) - a);
     float3 result1 = (fixed_numerator + variable_numerator) / denominator;
