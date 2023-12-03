@@ -196,6 +196,10 @@ float3 expandGamut(float3 vHDRColor, float fExpandGamut /*= 1.0f*/)
     float3 ColorAP1 = mul(sRGB_2_AP1, vHDRColor);
 
     float LumaAP1 = dot(ColorAP1, AP1_RGB2Y);
+    if (LumaAP1 <= 0.f)
+    {
+        return vHDRColor;
+    }
     float3 ChromaAP1 = ColorAP1 / LumaAP1;
 
     float ChromaDistSqr = dot(ChromaAP1 - 1, ChromaAP1 - 1);
