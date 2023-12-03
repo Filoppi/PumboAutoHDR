@@ -32,12 +32,12 @@ uniform uint IN_COLOR_SPACE
   ui_category = "Calibration";
 > = DEFAULT_COLOR_SPACE;
 
-uniform uint OVERBRIGHT_PIXELS_BEHAVIOUR
+uniform uint OUT_OF_GAMUT_COLORS_BEHAVIOUR
 <
-  ui_label    = "Overbright pixels behaviour";
+  ui_label    = "Out of gamut colors behaviour";
   ui_type     = "combo";
   ui_items    = "Apply Gamma\0Ignore Gamma\0Clip\0";
-  ui_tooltip = "When forcing HDR (float) buffers on SDR games, they can occasionally output colors brighter than 1.\nThis dictates how we should react to them. Pick what looks best";
+  ui_tooltip = "When forcing HDR (float) buffers on SDR games, they can occasionally output rgb colors brighter than 1 or lower than 0.\nThis dictates how we should react to them. Pick what looks best";
   ui_category = "Calibration";
 > = 0;
 
@@ -207,18 +207,25 @@ void AdvancedAutoHDR(
             inColorSpace = ACTUAL_COLOR_SPACE;
     }
     
-    const bool ignoreOverbrightPixelsGamma = OVERBRIGHT_PIXELS_BEHAVIOUR == 1;
-    const bool clipOverbrightPixels = OVERBRIGHT_PIXELS_BEHAVIOUR == 2;
+    const bool ignoreOutOfGamutColorsGamma = OUT_OF_GAMUT_COLORS_BEHAVIOUR == 1;
+    const bool clipOutOfGamutColors = OUT_OF_GAMUT_COLORS_BEHAVIOUR == 2;
 
     if (inColorSpace == 0 || inColorSpace == 1) // sRGB (and Auto)
-        fixedGammaColor = sRGB_to_linear(fixedGammaColor, ignoreOverbrightPixelsGamma);
+        fixedGammaColor = sRGB_to_linear(fixedGammaColor, ignoreOutOfGamutColorsGamma);
     else if (inColorSpace == 2 || inColorSpace == 3) // Rec.709 Gamma 2.2 | Rec.709 Gamma 2.4
     {
         const float gamma = (inColorSpace == 2) ? 2.2f : 2.4f;
         
-        [unroll]
-        for (int i = 0; i < 3; ++i)
-            fixedGammaColor[i] = (ignoreOverbrightPixelsGamma && fixedGammaColor[i] >= 1.f) ? fixedGammaColor[i] : pow(fixedGammaColor[i], gamma);
+        float3 extraColor = 0.f;
+        if (ignoreOutOfGamutColorsGamma)
+        {
+            extraColor = fixedGammaColor - saturate(fixedGammaColor);
+            fixedGammaColor = saturate(fixedGammaColor);
+        }
+        
+        fixedGammaColor = gamma_to_linear_mirrored(fixedGammaColor, gamma);
+        fixedGammaColor += extraColor;
+
     }
     else if (inColorSpace == 5) // HDR10 BT.2020 PQ
     {
@@ -226,16 +233,14 @@ void AdvancedAutoHDR(
         fixedGammaColor = BT2020_to_BT709(fixedGammaColor);
     }
     
-    if (clipOverbrightPixels)
+    if (clipOutOfGamutColors)
     {
-        [unroll]
-        for (int i = 0; i < 3; ++i)
-            fixedGammaColor[i] = min(fixedGammaColor[i], 1.f);
+        fixedGammaColor = saturate(fixedGammaColor);
     }
 
     // Fix up negative luminance (imaginary/invalid colors)
     if (luminance(fixedGammaColor) < 0.f)
-        fixedGammaColor = float3(0.f, 0.f, 0.f);
+        fixedGammaColor = 0.f;
     
     // Fix raised blacks floor
     float3 fineTunedColor = fixedGammaColor;

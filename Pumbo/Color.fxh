@@ -8,12 +8,12 @@ static const float HDR10_max_nits = 10000.f;
 static const float mid_gray = 0.18f;
 
 // sRGB gamma to linear (scRGB)
-float sRGB_to_linear(float color, bool ignoreAboveOne /*= false*/)
+float sRGB_to_linear(float color, bool ignoreOutOfGamut /*= false*/)
 {
     const float a = 0.055f;
 
     [flatten]
-    if (ignoreAboveOne && color >= 1.f)
+    if (ignoreOutOfGamut && (color >= 1.f || color <= 0.f))
     {
         // Nothing to do
     }
@@ -25,12 +25,22 @@ float sRGB_to_linear(float color, bool ignoreAboveOne /*= false*/)
     return color;
 }
 
-float3 sRGB_to_linear(float3 colour, bool ignoreAboveOne /*= false*/)
+float3 sRGB_to_linear(float3 colour, bool ignoreOutOfGamut /*= false*/)
 {
     return float3(
-		sRGB_to_linear(colour.r, ignoreAboveOne),
-		sRGB_to_linear(colour.g, ignoreAboveOne),
-		sRGB_to_linear(colour.b, ignoreAboveOne));
+		sRGB_to_linear(colour.r, ignoreOutOfGamut),
+		sRGB_to_linear(colour.g, ignoreOutOfGamut),
+		sRGB_to_linear(colour.b, ignoreOutOfGamut));
+}
+
+float3 gamma_to_linear_mirrored(float3 Color, float Gamma /*= 2.2f*/)
+{
+    return pow(abs(Color), Gamma) * sign(Color);
+}
+
+float3 linear_to_gamma_mirrored(float3 Color, float Gamma /*= 2.2f*/)
+{
+	return pow(abs(Color), 1.f / Gamma) * sign(Color);
 }
 
 static const float PQ_constant_N = (2610.0 / 4096.0 / 4.0);
