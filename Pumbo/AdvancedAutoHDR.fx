@@ -54,7 +54,7 @@ uniform float SDR_WHITEPOINT_NITS
 <
   ui_label = "SDR white point (paper white) nits";
   ui_type = "drag";
-  ui_tooltip = "SDR is neutral at 80 nits, though for most viewing conditions 200 is a good starting value";
+  ui_tooltip = "SDR is neutral at 80 nits, though for most viewing conditions 203 is a good starting value";
   ui_category = "Calibration";
   ui_min = 1.f;
   ui_max = 500.f;
@@ -64,7 +64,7 @@ uniform float SDR_WHITEPOINT_NITS
 uniform float HDR_MAX_NITS
 <
   ui_label = "HDR display max nits";
-  ui_tooltip = "This is used by HDR tonemapping. Set it equal or higher the AutoHDR max nits to ignore it and avoid double tonemapping.";
+  ui_tooltip = "This is used by HDR tonemapping. Set it equal or higher the AutoHDR max nits to ignore it and avoid double tonemapping";
   ui_category = "Calibration";
   ui_type = "drag";
   ui_min = sRGB_max_nits;
@@ -139,7 +139,7 @@ uniform uint INVERSE_TONEMAP_METHOD
 <
   ui_category = "Inverse tone mapping";
   ui_label    = "Inverse tonemap method";
-  ui_tooltip  = "Do not use with Auto HDR; it's a more bare bones version of it.\nSome of these might clip all out of gamut colors from the source image.";
+  ui_tooltip  = "Do not use with Auto HDR; it's a more bare bones version of it.\nSome of these might clip all out of gamut colors from the source image";
   ui_type     = "combo";
   ui_items    = "None\0Advanced Reinhard by channel\0ACES Filmic\0";
 > = 0;
