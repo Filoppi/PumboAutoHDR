@@ -99,7 +99,7 @@ uniform uint AUTO_HDR_METHOD
   ui_category = "Auto HDR";
   ui_label    = "Auto HDR method";
   ui_type     = "combo";
-  ui_items    = "None\0By luminance (color conserving) - RECCOMENDED\0By channel average (color conserving)\0By channel (increases saturation)\0By max channel (color conserving)\0";
+  ui_items    = "None\0By luminance (color conserving) - RECCOMENDED\0By channel average (color conserving)\0By channel (increases saturation)\0By max channel (color conserving)\0By Oklab lightness\0";
 > = 0;
 
 uniform float AUTO_HDR_SHOULDER_START_ALPHA
@@ -323,6 +323,12 @@ void AdvancedAutoHDR(
         else if (AUTO_HDR_METHOD == 4)
         {
             SDRRatio = max3(autoHDRColor.x, autoHDRColor.y, autoHDRColor.z);
+        }
+        // By OKLAB perceived lightness (~perceptually accurate)
+        // This is perception space so it likely requires a different AutoHDR shoulder pow.
+        else if (AUTO_HDR_METHOD == 5)
+        {
+            SDRRatio = linear_srgb_to_oklab(autoHDRColor)[0];
         }
         
         [unroll]
