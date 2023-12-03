@@ -196,7 +196,7 @@ void AdvancedAutoHDR(
     const float3 input = tex2D(ReShade::BackBuffer, texcoord).rgb;
 
     float3 fixedGammaColor = input;
-    fixedGammaColor = clamp(fixedGammaColor, -65504.f, 65504.f);
+    fixedGammaColor = clamp(fixedGammaColor, -FLT16_MAX, FLT16_MAX);
     
     uint inColorSpace = IN_COLOR_SPACE;
     if (inColorSpace == 0) // Auto selection
