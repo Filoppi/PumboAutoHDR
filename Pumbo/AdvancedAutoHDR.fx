@@ -139,7 +139,7 @@ uniform uint INVERSE_TONEMAP_METHOD
 <
   ui_category = "Inverse tone mapping";
   ui_label    = "Inverse tonemap method";
-  ui_tooltip  = "Do not use with Auto HDR; it's a more bare bones version of it";
+  ui_tooltip  = "Do not use with Auto HDR; it's a more bare bones version of it.\nSome of these might clip all out of gamut colors from the source image.";
   ui_type     = "combo";
   ui_items    = "None\0Advanced Reinhard by channel\0ACES Filmic\0";
 > = 0;
@@ -273,11 +273,11 @@ void AdvancedAutoHDR(
             // Re-map the image to roughly keep the same average brightness
             fixTonemapColor /= inv_tonemap_ReinhardPerComponent(float3(mid_gray, mid_gray, mid_gray), TONEMAPPER_WHITE_POINT) / mid_gray;
         }
-        else if (INVERSE_TONEMAP_METHOD == 2) // ACES Filmic
+        else if (INVERSE_TONEMAP_METHOD == 2) // (Approximate) ACES Filmic
         {
             fixTonemapColor = inv_ACES_Filmic(fixTonemapColor);
         }
-#if 0 // Disabled as it's unlikely to ever have been used by SDR games and it looks ugly
+#if 0 // Disabled as it's unlikely to ever have been used by SDR games (tonemapping by luminance can create colors beyond 1) and it looks ugly
         else if (INVERSE_TONEMAP_METHOD == 3) // Advanced Reinhard - Luminance based
         {
             const float PreTonemapLuminance = luminance(fixTonemapColor);

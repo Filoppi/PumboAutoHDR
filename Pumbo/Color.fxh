@@ -118,6 +118,10 @@ float3 inv_ACES_Filmic(float3 color)
     float c = 2.43f;
     float d = 0.59f;
     float e = 0.14f;
+    
+    // Avoid out of gamut colors from breaking the formula
+    color = saturate(color);
+    
     // OG formula:
     // return (color * ((a * color) + b)) / (color * ((c * color) + d) + e);
     
