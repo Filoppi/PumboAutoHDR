@@ -263,6 +263,12 @@ float average(float3 vColor)
     return dot(vColor, float3(1.f / 3.f, 1.f / 3.f, 1.f / 3.f));
 }
 
+float3 saturation(float3 color, float saturation)
+{
+    float luminance = luminance(color);
+    return lerp(luminance, color, saturation);
+}
+
 float rangeCompressPow(float x, float fPow /*= 1.0f*/)
 {
     return 1.0 - pow(exp(-x), fPow);

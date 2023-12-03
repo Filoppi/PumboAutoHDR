@@ -90,7 +90,7 @@ uniform float HIGHLIGHTS_SHOULDER_POW
   ui_category = "Calibration";
   ui_type = "drag";
   ui_min = 0.001f;
-  ui_max = 8.f;
+  ui_max = 10.f;
   ui_step = 0.05f;
 > = 1.f;
 
@@ -105,7 +105,7 @@ uniform uint AUTO_HDR_METHOD
 uniform float AUTO_HDR_SHOULDER_START_ALPHA
 <
   ui_label = "Auto HDR shoulder start alpha";
-  ui_tooltip = "Determines how bright an SDR color needs to be before we start scaling its brightness to generate fake HDR highlights. Has no effect at 1";
+  ui_tooltip = "Determines how bright the source SDR color needs to be before we start scaling its brightness to generate fake HDR highlights. Has no effect at 1";
   ui_category = "Auto HDR";
   ui_type = "drag";
   ui_min = 0.f;
@@ -169,7 +169,7 @@ uniform float BLACK_FLOOR_LUMINANCE
 uniform float SHADOW_TUNING
 <
   ui_label = "Shadow";
-  ui_tooltip = "Rebalances shadow. Neutral at 1";
+  ui_tooltip = "Rebalances shadows. Neutral at 1";
   ui_category = "Fine tuning";
   ui_type = "drag";
   ui_min = 0.01f;
@@ -177,10 +177,21 @@ uniform float SHADOW_TUNING
   ui_step = 0.01f;
 > = 1.f;
 
+uniform float HIGHLIGHT_SATURATION
+<
+  ui_label = "Highlight saturation";
+  ui_tooltip = "Allows tuning of highlights saturation. Neutral at 1";
+  ui_category = "Fine tuning";
+  ui_type = "drag";
+  ui_min = 0.75f;
+  ui_max = 1.5f;
+  ui_step = 0.005f;
+> = 1.f;
+
 uniform float EXTRA_HDR_SATURATION
 <
   ui_label = "Extra HDR saturation";
-  ui_tooltip = "Generates HDR colors (BT.2020) from bright saturated SDR (BT.709) ones";
+  ui_tooltip = "Generates HDR colors (BT.2020) from bright saturated SDR (BT.709) ones. Neutral at 0";
   ui_category = "Fine tuning";
   ui_type = "drag";
   ui_min = 0.f;
@@ -291,8 +302,9 @@ void AdvancedAutoHDR(
     const float SDRBrightnessScale = SDR_WHITEPOINT_NITS / sRGB_max_nits;
 
     // Auto HDR
+    const bool doAutoHDR = AUTO_HDR_METHOD > 0 && AUTO_HDR_SHOULDER_START_ALPHA < 1.f;
     float3 autoHDRColor = fixTonemapColor;
-    if (AUTO_HDR_METHOD > 0)
+    if (doAutoHDR)
     {
         float3 SDRRatio = 0.f;
         float3 divisor = 1.f;
@@ -333,38 +345,44 @@ void AdvancedAutoHDR(
             SDRRatio = linear_srgb_to_oklab(autoHDRColor)[0];
         }
         
-        [unroll]
-        for (int i = 0; i < 3; ++i)
-        {
-            const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / SDRBrightnessScale, sRGB_max_nits) / sRGB_max_nits;
-            if (SDRRatio[i] > AUTO_HDR_SHOULDER_START_ALPHA && AUTO_HDR_SHOULDER_START_ALPHA < 1.f)
-            {
-                const float autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio[i], 0.f) / (1.f - AUTO_HDR_SHOULDER_START_ALPHA));
-                const float autoHDRExtraRatio = (pow(autoHDRShoulderRatio, AUTO_HDR_SHOULDER_POW) * (autoHDRMaxWhite - 1.f)) / divisor[i];
-                const float autoHDRTotalRatio = SDRRatio[i] + autoHDRExtraRatio;
-                autoHDRColor[i] *= autoHDRTotalRatio / SDRRatio[i];
-            }
-        }
+        SDRRatio = max(SDRRatio, AUTO_HDR_SHOULDER_START_ALPHA);
+        const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / SDRBrightnessScale, sRGB_max_nits) / sRGB_max_nits;
+        const float autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio, 0.f) / (1.f - AUTO_HDR_SHOULDER_START_ALPHA));
+        const float autoHDRExtraRatio = (pow(autoHDRShoulderRatio, AUTO_HDR_SHOULDER_POW) * (autoHDRMaxWhite - 1.f)) / divisor;
+        const float autoHDRTotalRatio = SDRRatio + autoHDRExtraRatio;
+        autoHDRColor *= autoHDRTotalRatio / SDRRatio;
+    }
+    
+    fineTunedColor = autoHDRColor;
+    if (HIGHLIGHT_SATURATION != 1.f)
+    {
+        const float OklabLightness = linear_srgb_to_oklab(fineTunedColor)[0];
+        const float highlightSaturationRatio = max((OklabLightness - (2.f / 3.f)) / (1.f / 3.f), 0.f);
+        fineTunedColor = saturation(fineTunedColor, lerp(1.f, HIGHLIGHT_SATURATION, highlightSaturationRatio));
     }
 
-    float3 displayMappedColor = autoHDRColor;
-    displayMappedColor *= SDRBrightnessScale;
+    float3 displayMappedColor = fineTunedColor;
 
-    fineTunedColor = displayMappedColor;
-    float HDRLuminance = luminance(displayMappedColor);
     // Note: this is influenced by the AutoHDR params and by "SDRBrightnessScale".
     // Theoretically this should be done when the image is fully in linear space,
     // like 0-10k nits or more, before tonemapping, but we can't recreate such image from the data we have.
-    if (EXTRA_HDR_SATURATION > 0.f && HDRLuminance > 0.f)
+    if (EXTRA_HDR_SATURATION > 0.f)
     {
+        // Do this with a paper white of 203 nits, so it's balanced (the formula seems to be made for that),
+        // and gives consistent results independently of the user paper white
+        const float recommendedBrightnessScale = ReferenceWhiteNits_BT2408 / sRGB_max_nits;
+        
+        fineTunedColor = displayMappedColor * recommendedBrightnessScale;
         fineTunedColor = expandGamut(fineTunedColor, EXTRA_HDR_SATURATION);
-        HDRLuminance = luminance(fineTunedColor);
+        displayMappedColor = fineTunedColor / recommendedBrightnessScale;
     }
-    displayMappedColor = fineTunedColor;
-
+    
+    displayMappedColor *= SDRBrightnessScale;
+    float HDRLuminance = luminance(displayMappedColor);
+    
     // Display mapping.
     // Avoid doing it if we are doing AutoHDR within the screen brightness range already (even the result might snap based on the condition when we change params).
-    if (HDRLuminance > 0.0f && (AUTO_HDR_METHOD == 0 || (AUTO_HDR_MAX_NITS > HDR_MAX_NITS)))
+    if (HDRLuminance > 0.0f && (!doAutoHDR || (AUTO_HDR_MAX_NITS > HDR_MAX_NITS)))
     {
         const float maxOutputLuminance = HDR_MAX_NITS / sRGB_max_nits;
         const float highlightsShoulderStart = HIGHLIGHTS_SHOULDER_START_ALPHA * maxOutputLuminance;
