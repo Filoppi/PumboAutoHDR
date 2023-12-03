@@ -298,6 +298,8 @@ void AdvancedAutoHDR(
         float3 divisor = 1.f;
         
         //TODO: delete all except average and channel?
+        //TODO: Try to add a new method that does AutoHDR in PQ space (I gave it a quick attempt and it didn't seem to change much, though it might be easier for users to configure).
+        //Alternatively, we could find the "SDRRation" with ICtCp.
         
         // By luminance
         if (AUTO_HDR_METHOD == 1)
