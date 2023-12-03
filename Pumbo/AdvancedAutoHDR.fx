@@ -59,7 +59,7 @@ uniform float SDR_WHITEPOINT_NITS
   ui_min = 1.f;
   ui_max = 500.f;
   ui_step = 1.f;
-> = BT709_max_nits;
+> = sRGB_max_nits;
 
 uniform float HDR_MAX_NITS
 <
@@ -67,7 +67,7 @@ uniform float HDR_MAX_NITS
   ui_tooltip = "This is used by HDR tonemapping. Set it equal or higher the AutoHDR max nits to ignore it and avoid double tonemapping.";
   ui_category = "Calibration";
   ui_type = "drag";
-  ui_min = BT709_max_nits;
+  ui_min = sRGB_max_nits;
   ui_max = 10000.f;
   ui_step = 1.f;
 > = 750.f;
@@ -119,7 +119,7 @@ uniform float AUTO_HDR_MAX_NITS
   ui_tooltip = "Depending on the other AutoHDR settings, going too bright (e.g. beyond the 600-1000 nits range), can lead to weird results, as we are still limited by an SDR source image";
   ui_category = "Auto HDR";
   ui_type = "drag";
-  ui_min = BT709_max_nits;
+  ui_min = sRGB_max_nits;
   ui_max = 2000.f;
   ui_step = 1.f;
 > = 400.f;
@@ -288,7 +288,7 @@ void AdvancedAutoHDR(
         //TODO: add some other inverse tonemappers and SpecialK Perceptual Boost
     }
 
-    const float SDRBrightnessScale = SDR_WHITEPOINT_NITS / BT709_max_nits;
+    const float SDRBrightnessScale = SDR_WHITEPOINT_NITS / sRGB_max_nits;
 
     // Auto HDR
     float3 autoHDRColor = fixTonemapColor;
@@ -334,7 +334,7 @@ void AdvancedAutoHDR(
         [unroll]
         for (int i = 0; i < 3; ++i)
         {
-            const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / SDRBrightnessScale, BT709_max_nits) / BT709_max_nits;
+            const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / SDRBrightnessScale, sRGB_max_nits) / sRGB_max_nits;
             if (SDRRatio[i] > AUTO_HDR_SHOULDER_START_ALPHA && AUTO_HDR_SHOULDER_START_ALPHA < 1.f)
             {
                 const float autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio[i], 0.f) / (1.f - AUTO_HDR_SHOULDER_START_ALPHA));
@@ -364,7 +364,7 @@ void AdvancedAutoHDR(
     // Avoid doing it if we are doing AutoHDR within the screen brightness range already (even the result might snap based on the condition when we change params).
     if (HDRLuminance > 0.0f && (AUTO_HDR_METHOD == 0 || (AUTO_HDR_MAX_NITS > HDR_MAX_NITS)))
     {
-        const float maxOutputLuminance = HDR_MAX_NITS / BT709_max_nits;
+        const float maxOutputLuminance = HDR_MAX_NITS / sRGB_max_nits;
         const float highlightsShoulderStart = HIGHLIGHTS_SHOULDER_START_ALPHA * maxOutputLuminance;
         const float compressedHDRLuminance = lumaCompress(HDRLuminance, maxOutputLuminance, highlightsShoulderStart, HIGHLIGHTS_SHOULDER_POW);
         displayMappedColor *= compressedHDRLuminance / HDRLuminance;

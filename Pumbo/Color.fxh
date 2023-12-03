@@ -1,7 +1,9 @@
 #define K_BT709  float3(0.2126f, 0.7152f, 0.0722f)
 #define K_BT2020 float3(0.2627f, 0.6780f, 0.0593f)
 
-static const float BT709_max_nits = 80.f;
+// sRGB SDR white is meant to be mapped to 80 nits (not 100, even if some game engine (UE) and consoles (PS5) interpret it as such).
+static const float sRGB_max_nits = 80.f;
+static const float ReferenceWhiteNits_BT2408 = 203.f;
 // SMPTE ST 2084 (Perceptual Quantization) is only defined until this amount of nits
 static const float HDR10_max_nits = 10000.f;
 // Linear BT.709 mid grey (it could also be ~0.215)
@@ -48,7 +50,7 @@ static const float PQ_constant_M = (2523.0 / 4096.0 * 128.0);
 static const float PQ_constant_C1 = (3424.0 / 4096.0);
 static const float PQ_constant_C2 = (2413.0 / 4096.0 * 32.0);
 static const float PQ_constant_C3 = (2392.0 / 4096.0 * 32.0);
-static const float PQMaxWhitePoint = HDR10_max_nits / BT709_max_nits;
+static const float PQMaxWhitePoint = HDR10_max_nits / sRGB_max_nits;
 
 // PQ (Perceptual Quantizer - ST.2084) encode/decode used for HDR10 BT.2100
 float3 linear_to_PQ(float3 linearCol)
