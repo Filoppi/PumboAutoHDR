@@ -38,6 +38,36 @@ float3 sRGB_to_linear(float3 colour, bool ignoreOutOfGamut /*= false*/)
 		sRGB_to_linear(colour.b, ignoreOutOfGamut));
 }
 
+float3 sRGB_to_linear_mirrored(float3 Color)
+{
+    return sRGB_to_linear(abs(Color), false) * sign(Color);
+}
+
+float linear_to_sRGB(float channel)
+{
+	if (channel <= 0.0031308f)
+	{
+		channel = channel * 12.92f;
+	}
+	else
+	{
+		channel = 1.055f * pow(channel, 1.f / 2.4f) - 0.055f;
+	}
+	return channel;
+}
+
+float3 linear_to_sRGB(float3 Color)
+{
+    return float3(linear_to_sRGB(Color.r), linear_to_sRGB(Color.g), linear_to_sRGB(Color.b));
+}
+
+// Mirroring gamma on negative colors makes this closer to gamma 2.2 and perception space in general,
+// it's sometimes easier to work with these values.
+float3 linear_to_sRGB_mirrored(float3 Color)
+{
+	return linear_to_sRGB(abs(Color)) * sign(Color);
+}
+
 float3 gamma_to_linear_mirrored(float3 Color, float Gamma /*= 2.2f*/)
 {
     return pow(abs(Color), Gamma) * sign(Color);

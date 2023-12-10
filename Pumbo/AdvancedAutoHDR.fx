@@ -50,6 +50,15 @@ uniform uint OUT_COLOR_SPACE
   ui_category = "Calibration";
 > = 0;
 
+//TODO: either add a preprocessor condition to always show this setting or turn "IN_COLOR_SPACE" into a preprocessor condition (not user friendly)
+uniform bool FIX_SRGB_2_2_GAMMA_MISMATCH
+<
+  ui_label    = "Fix sRGB gamma / 2.2 gamma mismatch";
+  hidden      = ACTUAL_COLOR_SPACE < 4;
+  ui_tooltip = "Some games use the sRGB gamma formula on output, but were developed and calibrated on gamma 2.2 displays.\nThis mismatch is usually baked into the game's look, so it looks correct in SDR on gamma 2.2 screens,\nbut it needs to be acknowledged when upgrading SDR to HDR (or there will be raised blacks), as we need to use the right inverse gamma formula.\nOccasionally this mismatch also ended up baked in the game's native HDR look, so you can use this to fix raised blacks.";
+  ui_category = "Calibration";
+> = false;
+
 uniform float SDR_WHITEPOINT_NITS
 <
   ui_label = "SDR white point (paper white) nits";
@@ -247,6 +256,13 @@ void AdvancedAutoHDR(
     if (clipOutOfGamutColors)
     {
         fixedGammaColor = saturate(fixedGammaColor);
+    }
+    
+    if (FIX_SRGB_2_2_GAMMA_MISMATCH && ACTUAL_COLOR_SPACE >= 4) // Check "FIX_SRGB_2_2_GAMMA_MISMATCH" hiding condition as well
+    {
+        // NOTE: we ignore "OUT_OF_GAMUT_COLORS_BEHAVIOUR" here as it doesn't really matter
+        fixedGammaColor = linear_to_sRGB_mirrored(fixedGammaColor);
+        fixedGammaColor = gamma_to_linear_mirrored(fixedGammaColor, 2.2f);
     }
 
     // Fix up negative luminance (imaginary/invalid colors)
