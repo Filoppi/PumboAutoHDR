@@ -131,7 +131,7 @@ uniform float AUTO_HDR_SHOULDER_POW
   ui_category = "Auto HDR";
   ui_type = "drag";
   ui_min = 1.f;
-  ui_max = 8.f;
+  ui_max = 10.f;
   ui_step = 0.05f;
 > = 2.5f;
 
