@@ -409,7 +409,7 @@ void AdvancedAutoHDR(
 
     displayMappedColor = fixNAN(displayMappedColor);
 
-    if ((OUT_COLOR_SPACE == 0 && inColorSpace == 4) || OUT_COLOR_SPACE == 2)
+    if ((OUT_COLOR_SPACE == 0 && inColorSpace == 5) || OUT_COLOR_SPACE == 2)
     {
         displayMappedColor = BT709_to_BT2020(displayMappedColor);
         displayMappedColor = linear_to_PQ(displayMappedColor);
