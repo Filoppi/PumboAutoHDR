@@ -345,12 +345,13 @@ void AdvancedAutoHDR(
             SDRRatio = linear_srgb_to_oklab(autoHDRColor)[0];
         }
         
-        SDRRatio = max(SDRRatio, AUTO_HDR_SHOULDER_START_ALPHA);
+        const float autoHDRShoulderStartAlpha = max(AUTO_HDR_SHOULDER_START_ALPHA, FLT_MIN); // Avoids "SDRRatio" being 0
+        SDRRatio = max(SDRRatio, autoHDRShoulderStartAlpha);
         const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / SDRBrightnessScale, sRGB_max_nits) / sRGB_max_nits;
-        const float3 autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio, 0.f) / (1.f - AUTO_HDR_SHOULDER_START_ALPHA));
+        const float3 autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio, 0.f) / (1.f - autoHDRShoulderStartAlpha));
         const float3 autoHDRExtraRatio = (pow(autoHDRShoulderRatio, AUTO_HDR_SHOULDER_POW) * (autoHDRMaxWhite - 1.f)) / divisor;
         const float3 autoHDRTotalRatio = SDRRatio + autoHDRExtraRatio;
-        autoHDRColor *= autoHDRTotalRatio / SDRRatio;
+        autoHDRColor *= autoHDRTotalRatio.z / SDRRatio.z;
     }
     
     fineTunedColor = autoHDRColor;

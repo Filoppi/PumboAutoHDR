@@ -2,6 +2,7 @@
 #define K_BT2020 float3(0.2627f, 0.6780f, 0.0593f)
 
 #define FLT16_MAX 65504.f
+#define FLT_MIN asfloat(0x00800000) //1.175494351e-38f
 
 // sRGB SDR white is meant to be mapped to 80 nits (not 100, even if some game engine (UE) and consoles (PS5) interpret it as such).
 static const float sRGB_max_nits = 80.f;
