@@ -260,6 +260,7 @@ void AdvancedAutoHDR(
     
     if (FIX_SRGB_2_2_GAMMA_MISMATCH && ACTUAL_COLOR_SPACE >= 4) // Check "FIX_SRGB_2_2_GAMMA_MISMATCH" hiding condition as well
     {
+        //TODO: when doing this, we might wanna divide by a user selected Paper White value (the same one the user set in the game (if playing in scRGB/HDR10)), and then re-multiply by it after the gamma correction.
         // NOTE: we ignore "OUT_OF_GAMUT_COLORS_BEHAVIOUR" here as it doesn't really matter
         fixedGammaColor = linear_to_sRGB_mirrored(fixedGammaColor);
         fixedGammaColor = gamma_to_linear_mirrored(fixedGammaColor, 2.2f);
