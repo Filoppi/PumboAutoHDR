@@ -163,7 +163,7 @@ uniform float BLACK_FLOOR_LUMINANCE
   ui_type = "drag";
   ui_min = 0.0f;
   ui_max = mid_gray;
-  ui_step = 0.000001f;
+  ui_step = 0.0000005f;
 > = 0.f;
 
 uniform float SHADOW_TUNING
