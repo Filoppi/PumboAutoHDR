@@ -368,7 +368,7 @@ void AdvancedAutoHDR(
         const float3 autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio, 0.f) / (1.f - autoHDRShoulderStartAlpha));
         const float3 autoHDRExtraRatio = (pow(autoHDRShoulderRatio, AUTO_HDR_SHOULDER_POW) * (autoHDRMaxWhite - 1.f)) / divisor;
         const float3 autoHDRTotalRatio = SDRRatio + autoHDRExtraRatio;
-        autoHDRColor *= autoHDRTotalRatio.z / SDRRatio.z;
+        autoHDRColor *= autoHDRTotalRatio / SDRRatio;
     }
     
     fineTunedColor = autoHDRColor;
