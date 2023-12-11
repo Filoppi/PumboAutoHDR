@@ -32,13 +32,24 @@ uniform uint IN_COLOR_SPACE
   ui_category = "Calibration";
 > = DEFAULT_COLOR_SPACE;
 
+uniform float SDR_WHITEPOINT_NITS
+<
+  ui_label = "Output white point (paper white) nits";
+  ui_type = "drag";
+  ui_tooltip = "Controls how bright the output image is. A value of 80 nits is \"neutral\" (it's the sRGB SDR standard), though for most viewing conditions 203 is a good starting point (ITU reference value).\nLeave at 80 if the source image is already HDR (unless you want to change its brightness)";
+  ui_category = "Calibration";
+  ui_min = 1.f;
+  ui_max = 500.f;
+  ui_step = 1.f;
+> = sRGB_max_nits;
+
 uniform uint OUT_OF_GAMUT_COLORS_BEHAVIOUR
 <
   ui_label    = "Out of gamut colors behaviour";
   ui_type     = "combo";
   ui_items    = "Apply Gamma\0Ignore Gamma\0Clip\0";
   ui_tooltip = "When forcing HDR (float) buffers on SDR games, they can occasionally output rgb colors brighter than 1 or lower than 0.\nThis dictates how we should react to them. Pick what looks best";
-  ui_category = "Calibration";
+  ui_category = "Advanced calibration";
 > = 0;
 
 uniform uint OUT_COLOR_SPACE
@@ -47,34 +58,44 @@ uniform uint OUT_COLOR_SPACE
   ui_type     = "combo";
   ui_items    = "Auto\0HDR scRGB\0HDR10 BT.2020 PQ\0";
   ui_tooltip = "Specify the output color space";
-  ui_category = "Calibration";
+  ui_category = "Advanced calibration";
 > = 0;
 
 //TODO: either add a preprocessor condition to always show this setting or turn "IN_COLOR_SPACE" into a preprocessor condition (not user friendly)
-uniform bool FIX_SRGB_2_2_GAMMA_MISMATCH
+uniform uint FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE
 <
   ui_label    = "Fix sRGB gamma / 2.2 gamma mismatch";
+  ui_type     = "combo";
   hidden      = ACTUAL_COLOR_SPACE < 4;
+  ui_items    = "None\0By channel - RECCOMENDED\0By luminance\0";
   ui_tooltip = "Some games use the sRGB gamma formula on output, but were developed and calibrated on gamma 2.2 displays.\nThis mismatch is usually baked into the game's look, so it looks correct in SDR on gamma 2.2 screens,\nbut it needs to be acknowledged when upgrading SDR to HDR (or there will be raised blacks), as we need to use the right inverse gamma formula.\nOccasionally this mismatch also ended up baked in the game's native HDR look, so you can use this to fix raised blacks.";
-  ui_category = "Calibration";
-> = false;
+  ui_category = "Advanced calibration";
+> = 0;
 
-uniform float SDR_WHITEPOINT_NITS
+uniform float SOURCE_HDR_WHITEPOINT_NITS
 <
-  ui_label = "SDR white point (paper white) nits";
+  ui_label = "Input HDR white point (paper white) nits";
+  hidden   = ACTUAL_COLOR_SPACE < 4;
   ui_type = "drag";
-  ui_tooltip = "SDR is neutral at 80 nits, though for most viewing conditions 203 is a good starting value";
-  ui_category = "Calibration";
+  ui_tooltip = "What paper white did the HDR source image have? This should be matched with the game paper white HDR calibration setting.\nUse 203 if you can't find out the value from the game. This might be ignored if the source image was SDR";
+  ui_category = "Advanced calibration";
   ui_min = 1.f;
   ui_max = 500.f;
   ui_step = 1.f;
 > = sRGB_max_nits;
 
+uniform bool HDR_TONEMAP
+<
+  ui_label = "HDR tonemapping";
+  ui_tooltip = "Enables an additional HDR tonemapping pass that happens after Auto HDR techniques. It can be useful to tonemap games that ignore the user display peak brightness";
+  ui_category = "HDR tone mapping";
+> = false;
+
 uniform float HDR_MAX_NITS
 <
-  ui_label = "HDR display max nits";
-  ui_tooltip = "This is used by HDR tonemapping. Set it equal or higher the AutoHDR max nits to ignore it and avoid double tonemapping";
-  ui_category = "Calibration";
+  ui_label = "HDR display peak brightness (max nits)";
+  ui_tooltip = "Set it equal or higher the Auto HDR max brightness to avoid double tonemapping";
+  ui_category = "HDR tone mapping";
   ui_type = "drag";
   ui_min = sRGB_max_nits;
   ui_max = 10000.f;
@@ -85,7 +106,7 @@ uniform float HIGHLIGHTS_SHOULDER_START_ALPHA
 <
   ui_label = "Highlights shoulder start alpha";
   ui_tooltip = "When do we start compressing highlight within your monitor capabilities?";
-  ui_category = "Calibration";
+  ui_category = "HDR tone mapping";
   ui_type = "drag";
   ui_min = 0.f;
   ui_max = 1.f;
@@ -96,7 +117,7 @@ uniform float HIGHLIGHTS_SHOULDER_POW
 <
   ui_label = "Highlights shoulder pow";
   ui_tooltip = "Modulates the highlight compression curve";
-  ui_category = "Calibration";
+  ui_category = "HDR tone mapping";
   ui_type = "drag";
   ui_min = 0.001f;
   ui_max = 10.f;
@@ -105,17 +126,17 @@ uniform float HIGHLIGHTS_SHOULDER_POW
 
 uniform uint AUTO_HDR_METHOD
 <
-  ui_category = "Auto HDR";
+  ui_category = "Auto HDR (SDR->HDR)";
   ui_label    = "Auto HDR method";
   ui_type     = "combo";
-  ui_items    = "None\0By luminance (color conserving) - RECCOMENDED\0By channel average (color conserving)\0By channel (increases saturation)\0By max channel (color conserving)\0By Oklab lightness\0";
+  ui_items    = "None\0By luminance (color conserving) - RECCOMENDED\0By channel average (color conserving)\0By channel (increases saturation)\0By max channel (color conserving)\0By Oklab lightness (color conserving)\0";
 > = 0;
 
 uniform float AUTO_HDR_SHOULDER_START_ALPHA
 <
   ui_label = "Auto HDR shoulder start alpha";
   ui_tooltip = "Determines how bright the source SDR color needs to be before we start scaling its brightness to generate fake HDR highlights. Has no effect at 1";
-  ui_category = "Auto HDR";
+  ui_category = "Auto HDR (SDR->HDR)";
   ui_type = "drag";
   ui_min = 0.f;
   ui_max = 1.f;
@@ -125,8 +146,8 @@ uniform float AUTO_HDR_SHOULDER_START_ALPHA
 uniform float AUTO_HDR_MAX_NITS
 <
   ui_label = "Auto HDR target/max brightness";
-  ui_tooltip = "Depending on the other AutoHDR settings, going too bright (e.g. beyond the 600-1000 nits range), can lead to weird results, as we are still limited by an SDR source image";
-  ui_category = "Auto HDR";
+  ui_tooltip = "Depending on the other Auto HDR settings, going too bright (e.g. beyond the 600-1000 nits range), can lead to weird results, as we are still limited by an SDR source image";
+  ui_category = "Auto HDR (SDR->HDR)";
   ui_type = "drag";
   ui_min = sRGB_max_nits;
   ui_max = 2000.f;
@@ -137,7 +158,7 @@ uniform float AUTO_HDR_SHOULDER_POW
 <
   ui_label = "Auto HDR shoulder pow";
   ui_tooltip = "Modulates the Auto HDR highlights curve";
-  ui_category = "Auto HDR";
+  ui_category = "Auto HDR (SDR->HDR)";
   ui_type = "drag";
   ui_min = 1.f;
   ui_max = 10.f;
@@ -146,9 +167,9 @@ uniform float AUTO_HDR_SHOULDER_POW
 
 uniform uint INVERSE_TONEMAP_METHOD
 <
-  ui_category = "Inverse tone mapping";
+  ui_category = "Inverse tone mapping (alternative SDR->HDR)";
   ui_label    = "Inverse tonemap method";
-  ui_tooltip  = "Do not use with Auto HDR; it's a more bare bones version of it.\nSome of these might clip all out of gamut colors from the source image";
+  ui_tooltip  = "Do not use with Auto HDR (or native HDR); it's a more bare bones version of it.\nSome of these might clip all out of gamut colors from the source image";
   ui_type     = "combo";
   ui_items    = "None\0Advanced Reinhard by channel\0ACES Filmic\0";
 > = 0;
@@ -157,7 +178,7 @@ uniform float TONEMAPPER_WHITE_POINT
 <
   ui_label = "Tonemapper white point (in units)";
   ui_tooltip = "Used as parameter by some tonemappers. Increases saturation. Has no effect at 1";
-  ui_category = "Inverse tone mapping";
+  ui_category = "Inverse tone mapping (alternative SDR->HDR)";
   ui_type = "drag";
   ui_min = 1.f;
   ui_max = 100.f;
@@ -258,12 +279,33 @@ void AdvancedAutoHDR(
         fixedGammaColor = saturate(fixedGammaColor);
     }
     
-    if (FIX_SRGB_2_2_GAMMA_MISMATCH && ACTUAL_COLOR_SPACE >= 4) // Check "FIX_SRGB_2_2_GAMMA_MISMATCH" hiding condition as well
+    if (FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE > 0 && ACTUAL_COLOR_SPACE >= 4) // Check "FIX_SRGB_2_2_GAMMA_MISMATCH" hiding condition as well
     {
-        //TODO: when doing this, we might wanna divide by a user selected Paper White value (the same one the user set in the game (if playing in scRGB/HDR10)), and then re-multiply by it after the gamma correction.
-        //TODO: for we ignore "OUT_OF_GAMUT_COLORS_BEHAVIOUR" here, we should only do it between 0 and 1 or it won't work well on scRGB native HDR signals
-        fixedGammaColor = linear_to_sRGB_mirrored(fixedGammaColor);
-        fixedGammaColor = gamma_to_linear_mirrored(fixedGammaColor, 2.2f);
+        // Divide by a user selected Paper White value (the same one the user set in the game (if playing in scRGB/HDR10)), and then re-multiply by it after the gamma correction.
+        const float sourceHDRWhitepoint = SOURCE_HDR_WHITEPOINT_NITS / sRGB_max_nits;
+        fixedGammaColor /= inColorSpace >= 4 ? sourceHDRWhitepoint : 1.f;
+        
+        // Ignore any out of range values, we don't want to affect them with a random gamma shift (especially if the source was HDR and already had values beyond 0-1, where gamma theoretically isn't defined)
+        const float3 extraColor = fixedGammaColor - saturate(fixedGammaColor);
+        fixedGammaColor = saturate(fixedGammaColor);
+        
+        const float fixedGammaColorLuminance = luminance(fixedGammaColor);
+        float3 intermediaryFixedGammaColor = fixedGammaColor;
+        if (FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE == 2) // Hue conserving method (unortodox)
+        {
+            intermediaryFixedGammaColor = fixedGammaColorLuminance;
+        }
+        intermediaryFixedGammaColor = linear_to_sRGB_mirrored(intermediaryFixedGammaColor);
+        intermediaryFixedGammaColor = gamma_to_linear_mirrored(intermediaryFixedGammaColor, 2.2f);
+        if (FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE == 2)
+        {
+            intermediaryFixedGammaColor = fixedGammaColor * (fixedGammaColorLuminance != 0.f ? (intermediaryFixedGammaColor.x / fixedGammaColorLuminance) : 1.f);
+        }
+        fixedGammaColor = intermediaryFixedGammaColor;
+        
+        fixedGammaColor += extraColor;
+        
+        fixedGammaColor *= inColorSpace >= 4 ? sourceHDRWhitepoint : 1.f;
     }
 
     // Fix up negative luminance (imaginary/invalid colors)
@@ -359,6 +401,7 @@ void AdvancedAutoHDR(
         }
         // By OKLAB perceived lightness (~perceptually accurate)
         // This is perception space so it likely requires a different AutoHDR shoulder pow.
+        // TODO: This seems to be almost identical to the method by luminance (though with slightly different params), so maybe it's useless.
         else if (AUTO_HDR_METHOD == 5)
         {
             SDRRatio = linear_srgb_to_oklab(autoHDRColor)[0];
@@ -402,7 +445,7 @@ void AdvancedAutoHDR(
     
     // Display mapping.
     // Avoid doing it if we are doing AutoHDR within the screen brightness range already (even the result might snap based on the condition when we change params).
-    if (HDRLuminance > 0.0f && (!doAutoHDR || (AUTO_HDR_MAX_NITS > HDR_MAX_NITS)))
+    if (HDR_TONEMAP && HDRLuminance > 0.0f)
     {
         const float maxOutputLuminance = HDR_MAX_NITS / sRGB_max_nits;
         const float highlightsShoulderStart = HIGHLIGHTS_SHOULDER_START_ALPHA * maxOutputLuminance;
