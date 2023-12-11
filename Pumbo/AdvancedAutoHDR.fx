@@ -299,11 +299,13 @@ void AdvancedAutoHDR(
             fixTonemapColor = inv_tonemap_ReinhardPerComponent(fixTonemapColor, TONEMAPPER_WHITE_POINT);
             
             // Re-map the image to roughly keep the same average brightness
-            fixTonemapColor /= inv_tonemap_ReinhardPerComponent(float3(mid_gray, mid_gray, mid_gray), TONEMAPPER_WHITE_POINT) / mid_gray;
+            fixTonemapColor *= mid_gray / average(inv_tonemap_ReinhardPerComponent(mid_gray, TONEMAPPER_WHITE_POINT));
         }
         else if (INVERSE_TONEMAP_METHOD == 2) // (Approximate) ACES Filmic
         {
             fixTonemapColor = inv_ACES_Filmic(fixTonemapColor);
+            
+            fixTonemapColor *= mid_gray / average(inv_ACES_Filmic(mid_gray));
         }
 #if 0 // Disabled as it's unlikely to ever have been used by SDR games (tonemapping by luminance can create colors beyond 1) and it looks ugly
         else if (INVERSE_TONEMAP_METHOD == 3) // Advanced Reinhard - Luminance based

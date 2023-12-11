@@ -146,6 +146,17 @@ float3 inv_tonemap_ReinhardPerComponent(float3 L, float L_white /*= 1.0f*/)
     return L;
 }
 
+float3 ACES_Filmic(float3 color)
+{
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    
+    return (color * ((a * color) + b)) / (color * ((c * color) + d) + e);
+}
+
 float3 inv_ACES_Filmic(float3 color)
 {
     float a = 2.51f;
@@ -156,9 +167,6 @@ float3 inv_ACES_Filmic(float3 color)
     
     // Avoid out of gamut colors from breaking the formula
     color = saturate(color);
-    
-    // OG formula:
-    // return (color * ((a * color) + b)) / (color * ((c * color) + d) + e);
     
     float3 fixed_numerator = (-d * color) + b;
     float3 variable_numerator_part1 = (d * color) - b;
