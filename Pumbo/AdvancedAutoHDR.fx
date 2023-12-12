@@ -67,7 +67,7 @@ uniform uint FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE
   ui_label    = "Fix sRGB gamma / 2.2 gamma mismatch";
   ui_type     = "combo";
   hidden      = ACTUAL_COLOR_SPACE < 4;
-  ui_items    = "None\0By channel - RECCOMENDED\0By luminance\0";
+  ui_items    = "None\0By channel - RECCOMENDED\0By luminance (color hue conserving)\0";
   ui_tooltip = "Some games use the sRGB gamma formula on output, but were developed and calibrated on gamma 2.2 displays.\nThis mismatch is usually baked into the game's look, so it looks correct in SDR on gamma 2.2 screens,\nbut it needs to be acknowledged when upgrading SDR to HDR (or there will be raised blacks), as we need to use the right inverse gamma formula.\nOccasionally this mismatch also ended up baked in the game's native HDR look, so you can use this to fix raised blacks.";
   ui_category = "Advanced calibration";
 > = 0;
@@ -129,7 +129,7 @@ uniform uint AUTO_HDR_METHOD
   ui_category = "Auto HDR (SDR->HDR)";
   ui_label    = "Auto HDR method";
   ui_type     = "combo";
-  ui_items    = "None\0By luminance (color conserving) - RECCOMENDED\0By channel average (color conserving)\0By channel (increases saturation)\0By max channel (color conserving)\0By Oklab lightness (color conserving)\0";
+  ui_items    = "None\0By luminance (color hue conserving) - RECCOMENDED\0By channel average (color hue conserving)\0By channel (increases saturation)\0By max channel (color hue conserving)\0By Oklab lightness (color hue conserving)\0";
 > = 0;
 
 uniform float AUTO_HDR_SHOULDER_START_ALPHA
@@ -171,13 +171,13 @@ uniform uint INVERSE_TONEMAP_METHOD
   ui_label    = "Inverse tonemap method";
   ui_tooltip  = "Do not use with Auto HDR (or native HDR); it's a more bare bones version of it.\nSome of these might clip all out of gamut colors from the source image";
   ui_type     = "combo";
-  ui_items    = "None\0Advanced Reinhard by channel\0ACES Filmic\0";
+  ui_items    = "None\0Advanced Reinhard (by channel)\0ACES Filmic (by channel)\0";
 > = 0;
 
 uniform float TONEMAPPER_WHITE_POINT
 <
   ui_label = "Tonemapper white point (in units)";
-  ui_tooltip = "Used as parameter by some tonemappers. Increases saturation. Has no effect at 1";
+  ui_tooltip = "Used as parameter by some (inverse) tonemappers. Increases saturation. Has no effect at 1";
   ui_category = "Inverse tone mapping (alternative SDR->HDR)";
   ui_type = "drag";
   ui_min = 1.f;
