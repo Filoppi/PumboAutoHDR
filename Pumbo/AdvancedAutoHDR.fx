@@ -88,14 +88,14 @@ uniform bool HDR_TONEMAP
 <
   ui_label = "HDR tonemapping";
   ui_tooltip = "Enables an additional HDR tonemapping pass that happens after Auto HDR techniques. It can be useful to tonemap games that ignore the user display peak brightness";
-  ui_category = "HDR tone mapping";
+  ui_category = "HDR tonemapping";
 > = false;
 
 uniform float HDR_MAX_NITS
 <
   ui_label = "HDR display peak brightness (max nits)";
   ui_tooltip = "Set it equal or higher the Auto HDR max brightness to avoid double tonemapping";
-  ui_category = "HDR tone mapping";
+  ui_category = "HDR tonemapping";
   ui_type = "drag";
   ui_min = sRGB_max_nits;
   ui_max = 10000.f;
@@ -106,7 +106,7 @@ uniform float HIGHLIGHTS_SHOULDER_START_ALPHA
 <
   ui_label = "Highlights shoulder start alpha";
   ui_tooltip = "When do we start compressing highlight within your monitor capabilities?";
-  ui_category = "HDR tone mapping";
+  ui_category = "HDR tonemapping";
   ui_type = "drag";
   ui_min = 0.f;
   ui_max = 1.f;
@@ -117,7 +117,7 @@ uniform float HIGHLIGHTS_SHOULDER_POW
 <
   ui_label = "Highlights shoulder pow";
   ui_tooltip = "Modulates the highlight compression curve";
-  ui_category = "HDR tone mapping";
+  ui_category = "HDR tonemapping";
   ui_type = "drag";
   ui_min = 0.001f;
   ui_max = 10.f;
