@@ -185,6 +185,17 @@ uniform float TONEMAPPER_WHITE_POINT
   ui_step = 0.01f;
 > = 2.f;
 
+uniform float INVERSE_TONEMAP_COLOR_CONSERVATION
+<
+  ui_label = "Inverse tonemapper color conservation";
+  ui_tooltip = "asd";
+  ui_category = "Inverse tone mapping (alternative SDR->HDR)";
+  ui_type = "drag";
+  ui_min = 0.f;
+  ui_max = 1.f;
+  ui_step = 0.01f;
+> = 0.5f;
+
 uniform float BLACK_FLOOR_LUMINANCE
 <
   ui_label = "Black floor luminance";
@@ -358,6 +369,15 @@ void AdvancedAutoHDR(
         }
 #endif
         //TODO: add some other inverse tonemappers and SpecialK Perceptual Boost
+        
+        // Restore part of the original color "saturation" and "hue", but keep the new luminance
+        if (INVERSE_TONEMAP_COLOR_CONSERVATION != 0.f)
+        {
+            const float3 preInverseTonemapOklch = linear_srgb_to_oklch(fineTunedColor);
+            float3 postInverseTonemapOklch = linear_srgb_to_oklch(fixTonemapColor);
+            postInverseTonemapOklch.yz = lerp(postInverseTonemapOklch.yz, preInverseTonemapOklch.yz, INVERSE_TONEMAP_COLOR_CONSERVATION);
+            fixTonemapColor = oklch_to_linear_srgb(postInverseTonemapOklch);
+        }
     }
 
     const float SDRBrightnessScale = SDR_WHITEPOINT_NITS / sRGB_max_nits;
