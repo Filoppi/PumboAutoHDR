@@ -188,13 +188,13 @@ uniform float TONEMAPPER_WHITE_POINT
 uniform float INVERSE_TONEMAP_COLOR_CONSERVATION
 <
   ui_label = "Inverse tonemapper color conservation";
-  ui_tooltip = "asd";
+  ui_tooltip = "This makes the inverse tonemapped color gradually restore the SDR source image color (hue and saturation/chroma), while retaining its increased perceived brightness";
   ui_category = "Inverse tone mapping (alternative SDR->HDR)";
   ui_type = "drag";
   ui_min = 0.f;
   ui_max = 1.f;
   ui_step = 0.01f;
-> = 0.5f;
+> = 0.0f;
 
 uniform float BLACK_FLOOR_LUMINANCE
 <
@@ -373,6 +373,7 @@ void AdvancedAutoHDR(
         // Restore part of the original color "saturation" and "hue", but keep the new luminance
         if (INVERSE_TONEMAP_COLOR_CONSERVATION != 0.f)
         {
+            //TODO: experiment with this more (separate hue and chroma sliders?)
             const float3 preInverseTonemapOklch = linear_srgb_to_oklch(fineTunedColor);
             float3 postInverseTonemapOklch = linear_srgb_to_oklch(fixTonemapColor);
             postInverseTonemapOklch.yz = lerp(postInverseTonemapOklch.yz, preInverseTonemapOklch.yz, INVERSE_TONEMAP_COLOR_CONSERVATION);
