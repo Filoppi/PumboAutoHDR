@@ -15,6 +15,8 @@ SpecialK can also be used to enforce scRGB output.
 The AddOn from this similar ReShade https://github.com/EndlesslyFlowering/AutoHDR-ReShade (original by MajorPainTheCactus) can also be used to enforce HDR output on some games.
 Some games, like Starfield, support mods to force scRGB output even if the game is still rendering in SDR. This shader can be directly used with these.
 
+For support: https://discord.gg/px7EEfM2YF
+
 # How does this work
 Differently from most other AutoHDR implementations (e.g. Windows 11 one, SpecialK, ...) this shader aims to be more of an additive enhancment that doesn't drastically change the image, but just makes it shine.
 Additionally, you can also specify the gamma of the source SDR image (Windows AutoHDR assumes SDR signals follow the sRGB gamma, but that's barely ever true for games, as most of them were designed and calibrated on gamma 2.2 displays).
