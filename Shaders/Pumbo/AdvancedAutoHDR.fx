@@ -8,7 +8,7 @@
 #define RESHADE_COLOR_SPACE_BT2020_PQ   3
 
 // "BUFFER_COLOR_SPACE" is defined by ReShade.
-// "ACTUAL_COLOR_SPACE" uses the enum values defined in "IN_COLOR_SPACE".
+// "ACTUAL_COLOR_SPACE" uses the enum values defined in "IN_COLOR_SPACE" below.
 #if BUFFER_COLOR_SPACE == RESHADE_COLOR_SPACE_SRGB
   #define ACTUAL_COLOR_SPACE 1
 #elif BUFFER_COLOR_SPACE == RESHADE_COLOR_SPACE_SCRGB
@@ -32,9 +32,9 @@ uniform uint IN_COLOR_SPACE
   ui_category = "Calibration";
 > = DEFAULT_COLOR_SPACE;
 
-uniform float SDR_WHITEPOINT_NITS
+uniform float SDR_WHITE_LEVEL_NITS
 <
-  ui_label = "Output white point (paper white) nits";
+  ui_label = "Output white level (paper white) nits";
   ui_type = "drag";
   ui_tooltip = "Controls how bright the output image is. A value of 80 nits is \"neutral\" (it's the sRGB SDR standard), though for most viewing conditions 203 is a good starting point (ITU reference value).\nLeave at 80 if the source image is already HDR (unless you want to change its brightness)";
   ui_category = "Calibration";
@@ -72,12 +72,12 @@ uniform uint FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE
   ui_category = "Advanced calibration";
 > = 0;
 
-uniform float SOURCE_HDR_WHITEPOINT_NITS
+uniform float SOURCE_HDR_WHITE_LEVEL_NITS
 <
-  ui_label = "Input HDR white point (paper white) nits";
+  ui_label = "Input HDR white level (paper white) nits";
   hidden   = ACTUAL_COLOR_SPACE < 4;
   ui_type = "drag";
-  ui_tooltip = "What paper white did the HDR source image have? This should be matched with the game paper white HDR calibration setting.\nUse 203 if you can't find out the value from the game. This might be ignored if the source image was SDR";
+  ui_tooltip = "What paper white did the HDR source image have? This should be matched with the game paper white HDR calibration setting.\nUse 203 if you can't find out the value from the game (it's usually between 200 and 300). This might be ignored if the source image was SDR";
   ui_category = "Advanced calibration";
   ui_min = 1.f;
   ui_max = 500.f;
@@ -174,9 +174,9 @@ uniform uint INVERSE_TONEMAP_METHOD
   ui_items    = "None\0Advanced Reinhard (by channel)\0ACES Filmic (by channel)\0";
 > = 0;
 
-uniform float TONEMAPPER_WHITE_POINT
+uniform float TONEMAPPER_WHITE_LEVEL
 <
-  ui_label = "Tonemapper white point (in units)";
+  ui_label = "Tonemapper white level (in units)";
   ui_tooltip = "Used as parameter by some (inverse) tonemappers. Increases saturation. Has no effect at 1";
   ui_category = "Inverse tone mapping (alternative SDR->HDR)";
   ui_type = "drag";
@@ -199,7 +199,7 @@ uniform float INVERSE_TONEMAP_COLOR_CONSERVATION
 uniform float BLACK_FLOOR_LUMINANCE
 <
   ui_label = "Black floor luminance";
-  ui_tooltip = "Fixes raised black floors by remapping colors (by luminance)";
+  ui_tooltip = "Fixes raised black floors by remapping colors (by luminance). Relative to the input white level";
   ui_category = "Fine tuning";
   ui_type = "drag";
   ui_min = 0.0f;
@@ -210,7 +210,7 @@ uniform float BLACK_FLOOR_LUMINANCE
 uniform float SHADOW_TUNING
 <
   ui_label = "Shadow";
-  ui_tooltip = "Rebalances shadows. Neutral at 1";
+  ui_tooltip = "Rebalances shadows. Relative to the input white level. Neutral at 1";
   ui_category = "Fine tuning";
   ui_type = "drag";
   ui_min = 0.01f;
@@ -221,7 +221,7 @@ uniform float SHADOW_TUNING
 uniform float HIGHLIGHT_SATURATION
 <
   ui_label = "Highlight saturation";
-  ui_tooltip = "Allows tuning of highlights saturation. Neutral at 1";
+  ui_tooltip = "Allows tuning of highlights saturation (vibrancy). Relative to the input white level. Neutral at 1";
   ui_category = "Fine tuning";
   ui_type = "drag";
   ui_min = 0.75f;
@@ -281,7 +281,7 @@ void AdvancedAutoHDR(
     }
     else if (inColorSpace == 5) // HDR10 BT.2020 PQ
     {
-        fixedGammaColor = PQ_to_linear(fixedGammaColor); // We use sRGB white point (80 nits, not 100)
+        fixedGammaColor = PQ_to_linear(fixedGammaColor); // We use sRGB white level (80 nits, not 100)
         fixedGammaColor = BT2020_to_BT709(fixedGammaColor);
     }
     
@@ -290,33 +290,35 @@ void AdvancedAutoHDR(
         fixedGammaColor = saturate(fixedGammaColor);
     }
     
+    // Divide by a user selected Paper White value (the same one the user set in the game (if playing in scRGB/HDR10)), and then re-multiply by it after at the end, so everything is roughly independent from the paper white and run around a white level of 80.
+    float brightnessScale = inColorSpace >= 4 ? (SOURCE_HDR_WHITE_LEVEL_NITS / sRGB_max_nits) : 1.f;
+    fixedGammaColor /= brightnessScale;
+    
     if (FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE > 0 && ACTUAL_COLOR_SPACE >= 4) // Check "FIX_SRGB_2_2_GAMMA_MISMATCH" hiding condition as well
     {
-        // Divide by a user selected Paper White value (the same one the user set in the game (if playing in scRGB/HDR10)), and then re-multiply by it after the gamma correction.
-        const float sourceHDRWhitepoint = SOURCE_HDR_WHITEPOINT_NITS / sRGB_max_nits;
-        fixedGammaColor /= inColorSpace >= 4 ? sourceHDRWhitepoint : 1.f;
-        
         // Ignore any out of range values, we don't want to affect them with a random gamma shift (especially if the source was HDR and already had values beyond 0-1, where gamma theoretically isn't defined)
         const float3 extraColor = fixedGammaColor - saturate(fixedGammaColor);
         fixedGammaColor = saturate(fixedGammaColor);
         
         const float fixedGammaColorLuminance = luminance(fixedGammaColor);
         float3 intermediaryFixedGammaColor = fixedGammaColor;
-        if (FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE == 2) // Hue conserving method (unortodox)
+        if (FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE == 2) // Hue conserving method (unorthodox)
         {
-            intermediaryFixedGammaColor = fixedGammaColorLuminance;
+            intermediaryFixedGammaColor = fixedGammaColorLuminance; // Only rely on the first channel
         }
+        // No need to run the mirrored gamma functions here given we clipped values beyond 0-1, but we do it anyway
         intermediaryFixedGammaColor = linear_to_sRGB_mirrored(intermediaryFixedGammaColor);
         intermediaryFixedGammaColor = gamma_to_linear_mirrored(intermediaryFixedGammaColor, 2.2f);
         if (FIX_SRGB_2_2_GAMMA_MISMATCH_TYPE == 2)
         {
-            intermediaryFixedGammaColor = fixedGammaColor * (fixedGammaColorLuminance != 0.f ? (intermediaryFixedGammaColor.x / fixedGammaColorLuminance) : 1.f);
+            fixedGammaColor *= fixedGammaColorLuminance != 0.f ? (intermediaryFixedGammaColor.x / fixedGammaColorLuminance) : 1.f;
         }
-        fixedGammaColor = intermediaryFixedGammaColor;
+        else
+        {
+            fixedGammaColor = intermediaryFixedGammaColor;
+        }
         
         fixedGammaColor += extraColor;
-        
-        fixedGammaColor *= inColorSpace >= 4 ? sourceHDRWhitepoint : 1.f;
     }
 
     // Fix up negative luminance (imaginary/invalid colors)
@@ -349,10 +351,10 @@ void AdvancedAutoHDR(
     {
         if (INVERSE_TONEMAP_METHOD == 1) // Advanced Reinhard - Component based
         {
-            fixTonemapColor = inv_tonemap_ReinhardPerComponent(fixTonemapColor, TONEMAPPER_WHITE_POINT);
+            fixTonemapColor = inv_tonemap_ReinhardPerComponent(fixTonemapColor, TONEMAPPER_WHITE_LEVEL);
             
             // Re-map the image to roughly keep the same average brightness
-            fixTonemapColor *= mid_gray / average(inv_tonemap_ReinhardPerComponent(mid_gray, TONEMAPPER_WHITE_POINT));
+            fixTonemapColor *= mid_gray / average(inv_tonemap_ReinhardPerComponent(mid_gray, TONEMAPPER_WHITE_LEVEL));
         }
         else if (INVERSE_TONEMAP_METHOD == 2) // (Approximate) ACES Filmic
         {
@@ -364,7 +366,7 @@ void AdvancedAutoHDR(
         else if (INVERSE_TONEMAP_METHOD == 3) // Advanced Reinhard - Luminance based
         {
             const float PreTonemapLuminance = luminance(fixTonemapColor);
-            const float PostTonemapLuminance = inv_tonemap_ReinhardPerComponent(PreTonemapLuminance, TONEMAPPER_WHITE_POINT).r;
+            const float PostTonemapLuminance = inv_tonemap_ReinhardPerComponent(PreTonemapLuminance, TONEMAPPER_WHITE_LEVEL).r;
             fixTonemapColor *= PostTonemapLuminance / PreTonemapLuminance;
         }
 #endif
@@ -373,15 +375,19 @@ void AdvancedAutoHDR(
         // Restore part of the original color "saturation" and "hue", but keep the new luminance
         if (INVERSE_TONEMAP_COLOR_CONSERVATION != 0.f)
         {
+#if 1 //TODO: test... is this working?
+            fixTonemapColor = RestoreHue(fixTonemapColor, fineTunedColor, INVERSE_TONEMAP_COLOR_CONSERVATION);
+#else //TODO: delete old implementation?
             //TODO: experiment with this more (separate hue and chroma sliders?)
             const float3 preInverseTonemapOklch = linear_srgb_to_oklch(fineTunedColor);
             float3 postInverseTonemapOklch = linear_srgb_to_oklch(fixTonemapColor);
             postInverseTonemapOklch.yz = lerp(postInverseTonemapOklch.yz, preInverseTonemapOklch.yz, INVERSE_TONEMAP_COLOR_CONSERVATION);
             fixTonemapColor = oklch_to_linear_srgb(postInverseTonemapOklch);
+#endif
         }
     }
 
-    const float SDRBrightnessScale = SDR_WHITEPOINT_NITS / sRGB_max_nits;
+    brightnessScale *= SDR_WHITE_LEVEL_NITS / sRGB_max_nits;
 
     // Auto HDR
     const bool doAutoHDR = AUTO_HDR_METHOD > 0 && AUTO_HDR_SHOULDER_START_ALPHA < 1.f;
@@ -390,10 +396,9 @@ void AdvancedAutoHDR(
     {
         float3 SDRRatio = 0.f;
         float3 divisor = 1.f;
+        float autoHDRShoulderPow = AUTO_HDR_SHOULDER_POW;
         
-        //TODO: delete all except average and channel?
-        //TODO: Try to add a new method that does AutoHDR in PQ space (I gave it a quick attempt and it didn't seem to change much, though it might be easier for users to configure).
-        //Alternatively, we could find the "SDRRation" with ICtCp.
+        //TODO: delete all except luminance, average and channel? People seem to like weird ones
         
         // By luminance
         if (AUTO_HDR_METHOD == 1)
@@ -422,19 +427,38 @@ void AdvancedAutoHDR(
         }
         // By OKLAB perceived lightness (~perceptually accurate)
         // This is perception space so it likely requires a different AutoHDR shoulder pow.
-        // TODO: This seems to be almost identical to the method by luminance (though with slightly different params), so maybe it's useless.
         else if (AUTO_HDR_METHOD == 5)
+        {
+            autoHDRColor = linear_srgb_to_oklab(autoHDRColor);
+            SDRRatio = autoHDRColor[0]; // OKLAB lightness
+            autoHDRShoulderPow *= autoHDRShoulderPow; // sqr
+        }
+        // Old OKLAB method, use AUTO_HDR_METHOD 5 instead.
+        // Note: This seems to be almost identical to the method by luminance (though with slightly different params), so maybe it's useless.
+        else if (AUTO_HDR_METHOD == 6)
         {
             SDRRatio = linear_srgb_to_oklab(autoHDRColor)[0];
         }
         
-        const float autoHDRShoulderStartAlpha = max(AUTO_HDR_SHOULDER_START_ALPHA, FLT_MIN); // Avoids "SDRRatio" being 0
-        SDRRatio = max(SDRRatio, autoHDRShoulderStartAlpha);
-        const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / SDRBrightnessScale, sRGB_max_nits) / sRGB_max_nits;
-        const float3 autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio, 0.f) / (1.f - autoHDRShoulderStartAlpha));
-        const float3 autoHDRExtraRatio = (pow(autoHDRShoulderRatio, AUTO_HDR_SHOULDER_POW) * (autoHDRMaxWhite - 1.f)) / divisor;
+        SDRRatio = max(SDRRatio, AUTO_HDR_SHOULDER_START_ALPHA);
+        const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / brightnessScale, sRGB_max_nits) / sRGB_max_nits;
+        const float3 autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio, 0.f) / (1.f - AUTO_HDR_SHOULDER_START_ALPHA));
+        const float3 autoHDRExtraRatio = (pow(max(autoHDRShoulderRatio, 0.f), autoHDRShoulderPow) * (autoHDRMaxWhite - 1.f)) / divisor;
         const float3 autoHDRTotalRatio = SDRRatio + autoHDRExtraRatio;
-        autoHDRColor *= autoHDRTotalRatio / SDRRatio;
+        
+        if (AUTO_HDR_METHOD == 5) // Only scale lightness channel in OKLAB
+        {
+            autoHDRColor[0] *= SDRRatio[0] != 0.f ? (autoHDRTotalRatio[0] / SDRRatio[0]) : 1.f;
+        }
+        else
+        {
+            autoHDRColor *= SDRRatio != 0.f ? (autoHDRTotalRatio / SDRRatio) : 1.f;
+        }
+
+        if (AUTO_HDR_METHOD == 5)
+        {
+            autoHDRColor = oklab_to_linear_srgb(autoHDRColor);
+        }
     }
     
     fineTunedColor = autoHDRColor;
@@ -447,7 +471,7 @@ void AdvancedAutoHDR(
 
     float3 displayMappedColor = fineTunedColor;
 
-    // Note: this is influenced by the AutoHDR params and by "SDRBrightnessScale".
+    // Note: this is influenced by the AutoHDR params and by "brightnessScale".
     // Theoretically this should be done when the image is fully in linear space,
     // like 0-10k nits or more, before tonemapping, but we can't recreate such image from the data we have.
     if (EXTRA_HDR_SATURATION > 0.f)
@@ -461,7 +485,8 @@ void AdvancedAutoHDR(
         displayMappedColor = fineTunedColor / recommendedBrightnessScale;
     }
     
-    displayMappedColor *= SDRBrightnessScale;
+    displayMappedColor *= brightnessScale;
+    
     float HDRLuminance = luminance(displayMappedColor);
     
     // Display mapping.
@@ -487,7 +512,7 @@ void AdvancedAutoHDR(
 
 technique AdvancedAutoHDR
 <
-ui_tooltip = "Meant to be used with SDR games + a hook (e.g. DXVK or SpecialK) that is able to replace the game buffers to float16 (scRGB). There is no BT.2020 support for now.";
+ui_tooltip = "This shader can extrapolate HDR from SDR.\nIt's meant to be used on SDR games with a hook (e.g. DXVK or SpecialK or RenoDX) that is able to replace the game buffers to float16 (scRGB).\nIt also works on games with native HDR, aiding in fixing the lack of tonemapping, highlights or user paper white adjustment setting.";
 >
 {
     pass AdvancedAutoHDR

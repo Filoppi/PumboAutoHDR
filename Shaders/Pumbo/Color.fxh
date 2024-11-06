@@ -83,12 +83,12 @@ static const float PQ_constant_M = (2523.0 / 4096.0 * 128.0);
 static const float PQ_constant_C1 = (3424.0 / 4096.0);
 static const float PQ_constant_C2 = (2413.0 / 4096.0 * 32.0);
 static const float PQ_constant_C3 = (2392.0 / 4096.0 * 32.0);
-static const float PQMaxWhitePoint = HDR10_max_nits / sRGB_max_nits;
+static const float PQMaxWhiteLevel = HDR10_max_nits / sRGB_max_nits;
 
 // PQ (Perceptual Quantizer - ST.2084) encode/decode used for HDR10 BT.2100
 float3 linear_to_PQ(float3 linearCol)
 {
-    linearCol /= PQMaxWhitePoint;
+    linearCol /= PQMaxWhiteLevel;
 	
     float3 colToPow = pow(linearCol, PQ_constant_N);
     float3 numerator = PQ_constant_C1 + PQ_constant_C2 * colToPow;
@@ -105,7 +105,7 @@ float3 PQ_to_linear(float3 ST2084)
     float3 denominator = PQ_constant_C2 - (PQ_constant_C3 * colToPow);
     float3 linearColor = pow(numerator / denominator, 1.f / PQ_constant_N);
 
-    linearColor *= PQMaxWhitePoint;
+    linearColor *= PQMaxWhiteLevel;
 
     return linearColor;
 }
@@ -395,4 +395,31 @@ float3 linear_srgb_to_oklch(float3 rgb) {
 	return oklab_to_oklch(
 		linear_srgb_to_oklab(rgb)
 	);
+}
+
+// Restores the source color hue through Oklab (this works on colors beyond SDR in brightness and gamut too)
+float3 RestoreHue(float3 targetColor, float3 sourceColor, float amount = 0.5)
+{
+  // Invalid or black colors fail oklab conversions or ab blending so early out
+  if (luminance(targetColor) <= FLT_MIN)
+  {
+    // Optionally we could blend the target towards the source, or towards black, but there's no need until proven otherwise
+    return targetColor;
+  }
+
+  const float3 targetOklab = linear_srgb_to_oklab(targetColor);
+  const float3 targetOklch = oklab_to_oklch(targetOklab);
+  const float3 sourceOklab = linear_srgb_to_oklab(sourceColor);
+
+  // First correct both hue and chrominance at the same time (oklab a and b determine both, they are the color xy coordinates basically).
+  // As long as we don't restore the hue to a 100% (which should be avoided), this will always work perfectly even if the source color is pure white (or black, any "hueless" and "chromaless" color).
+  // This method also works on white source colors because the center of the oklab ab diagram is a "white hue", thus we'd simply blend towards white (but never flipping beyond it (e.g. from positive to negative coordinates)),
+  // and then restore the original chrominance later (white still conserving the original hue direction, so likely spitting out the same color as the original, or one very close to it).
+  float3 correctedTargetOklab = float3(targetOklab.x, lerp(targetOklab.yz, sourceOklab.yz, amount));
+
+  // Then restore chrominance
+  float3 correctedTargetOklch = oklab_to_oklch(correctedTargetOklab);
+  correctedTargetOklch.y = targetOklch.y;
+
+  return oklch_to_linear_srgb(correctedTargetOklch);
 }
