@@ -129,7 +129,7 @@ uniform uint AUTO_HDR_METHOD
   ui_category = "Auto HDR (SDR->HDR)";
   ui_label    = "Auto HDR method";
   ui_type     = "combo";
-  ui_items    = "None\0By luminance (color hue conserving) - RECCOMENDED\0By channel average (color hue conserving)\0By channel (increases saturation)\0By max channel (color hue conserving)\0By Oklab lightness (color hue conserving)\0";
+  ui_items    = "None\0By luminance (color hue conserving) - RECCOMENDED\0By channel average (color hue conserving)\0By channel (increases saturation)\0By max channel (color hue conserving)\0By max and luma blend (color hue conserving)\0By Oklab lightness (color hue conserving)\0";
 > = 0;
 
 uniform float AUTO_HDR_SHOULDER_START_ALPHA
@@ -425,17 +425,22 @@ void AdvancedAutoHDR(
         {
             SDRRatio = max3(autoHDRColor.x, autoHDRColor.y, autoHDRColor.z);
         }
+        // By max channel
+        else if (AUTO_HDR_METHOD == 5)
+        {
+            SDRRatio = lerp(max3(autoHDRColor.x, autoHDRColor.y, autoHDRColor.z), luminance(autoHDRColor), 0.8);
+        }
         // By OKLAB perceived lightness (~perceptually accurate)
         // This is perception space so it likely requires a different AutoHDR shoulder pow.
-        else if (AUTO_HDR_METHOD == 5)
+        else if (AUTO_HDR_METHOD == 6)
         {
             autoHDRColor = linear_srgb_to_oklab(autoHDRColor);
             SDRRatio = autoHDRColor[0]; // OKLAB lightness
             autoHDRShoulderPow *= autoHDRShoulderPow; // sqr
         }
-        // Old OKLAB method, use AUTO_HDR_METHOD 5 instead.
+        // Old OKLAB method, use AUTO_HDR_METHOD 6 instead.
         // Note: This seems to be almost identical to the method by luminance (though with slightly different params), so maybe it's useless.
-        else if (AUTO_HDR_METHOD == 6)
+        else if (AUTO_HDR_METHOD == 7)
         {
             SDRRatio = linear_srgb_to_oklab(autoHDRColor)[0];
         }
@@ -446,7 +451,7 @@ void AdvancedAutoHDR(
         const float3 autoHDRExtraRatio = (pow(max(autoHDRShoulderRatio, 0.f), autoHDRShoulderPow) * (autoHDRMaxWhite - 1.f)) / divisor;
         const float3 autoHDRTotalRatio = SDRRatio + autoHDRExtraRatio;
         
-        if (AUTO_HDR_METHOD == 5) // Only scale lightness channel in OKLAB
+        if (AUTO_HDR_METHOD == 6) // Only scale lightness channel in OKLAB
         {
             autoHDRColor[0] *= SDRRatio[0] != 0.f ? (autoHDRTotalRatio[0] / SDRRatio[0]) : 1.f;
         }
@@ -455,7 +460,7 @@ void AdvancedAutoHDR(
             autoHDRColor *= SDRRatio != 0.f ? (autoHDRTotalRatio / SDRRatio) : 1.f;
         }
 
-        if (AUTO_HDR_METHOD == 5)
+        if (AUTO_HDR_METHOD == 6)
         {
             autoHDRColor = oklab_to_linear_srgb(autoHDRColor);
         }
