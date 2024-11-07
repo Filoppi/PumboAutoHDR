@@ -3,6 +3,7 @@
 
 #define FLT16_MAX 65504.f
 #define FLT_MIN asfloat(0x00800000) //1.175494351e-38f
+#define FLT_MAX	asfloat(0x7F7FFFFF)  //3.402823466e+38f
 
 // sRGB SDR white is meant to be mapped to 80 nits (not 100, even if some game engine (UE) and consoles (PS5) interpret it as such).
 static const float sRGB_max_nits = 80.f;
@@ -90,7 +91,7 @@ float3 linear_to_PQ(float3 linearCol)
 {
     linearCol /= PQMaxWhiteLevel;
 	
-    float3 colToPow = pow(linearCol, PQ_constant_N);
+    float3 colToPow = pow(max(linearCol, 0.f), PQ_constant_N);
     float3 numerator = PQ_constant_C1 + PQ_constant_C2 * colToPow;
     float3 denominator = 1.f + PQ_constant_C3 * colToPow;
     float3 pq = pow(numerator / denominator, PQ_constant_M);
@@ -100,7 +101,7 @@ float3 linear_to_PQ(float3 linearCol)
 
 float3 PQ_to_linear(float3 ST2084)
 {
-    float3 colToPow = pow(ST2084, 1.0f / PQ_constant_M);
+    float3 colToPow = pow(max(ST2084, 0.f), 1.0f / PQ_constant_M);
     float3 numerator = max(colToPow - PQ_constant_C1, 0.f);
     float3 denominator = PQ_constant_C2 - (PQ_constant_C3 * colToPow);
     float3 linearColor = pow(numerator / denominator, 1.f / PQ_constant_N);
@@ -308,15 +309,44 @@ float3 saturation(float3 color, float saturation)
     return lerp(luminance, color, saturation);
 }
 
-float rangeCompressPow(float x, float fPow /*= 1.0f*/)
+float rangeCompress(float x)
 {
-    return 1.0 - pow(exp(-x), fPow);
+    return 1.0 - exp(-x);
+}
+// Aplies exponential ("Photographic") luminance/luma compression.
+// The pow can modulate the curve without changing the values around the edges.
+// The max is the max possible range to compress from, to not lose any output range if the input range was limited.
+float rangeCompress(float X, bool ConsiderMax = false, float Max = 0.f)
+{
+  // Branches are for static parameters optimizations
+    if (!ConsiderMax)
+    {
+        // This does e^X. We expect X to be between 0 and 1.
+        return 1.f - exp(-X);
+    }
+    const float lostRange = exp(-Max);
+    const float restoreRangeScale = 1.f / (1.f - lostRange);
+    return (1.f - exp(-X)) * restoreRangeScale;
 }
 
-float lumaCompress(float val, float fMaxValue, float fShoulderStart, float fPow /*= 1.0f*/)
+// Refurbished DICE HDR tonemapper (per channel or luminance).
+// Expects "InValue" to be >= "ShoulderStart" and "OutMaxValue" to be > "ShoulderStart".
+float luminanceCompress(
+  float InValue,
+  float OutMaxValue,
+  float ShoulderStart = 0.f,
+  bool ConsiderMaxValue = false,
+  float InMaxValue = 0.f)
 {
-    float v2 = fShoulderStart + (fMaxValue - fShoulderStart) * rangeCompressPow((val - fShoulderStart) / (fMaxValue - fShoulderStart), fPow);
-    return val <= fShoulderStart ? val : v2;
+  const float compressableValue = InValue - ShoulderStart;
+  const float compressableRange = max(InMaxValue, OutMaxValue) - ShoulderStart;
+  const float compressedRange = OutMaxValue - ShoulderStart;
+  const float possibleOutValue = ShoulderStart + compressedRange * rangeCompress(compressableValue / compressedRange, ConsiderMaxValue, compressableRange / compressedRange);
+#if 0
+  return possibleOutValue;
+#else // Enable this branch if "InValue" can be smaller than "ShoulderStart"
+  return (InValue <= ShoulderStart) ? InValue : possibleOutValue;
+#endif
 }
 
 // (in) sRGB/BT.709

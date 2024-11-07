@@ -20,15 +20,15 @@
 #endif
 
 // This uses the enum values defined in "IN_COLOR_SPACE"
-#define DEFAULT_COLOR_SPACE 1
+#define DEFAULT_COLOR_SPACE 2
 
 // We don't default to "Auto" here as if we are upgrading the backbuffer, we'd detect the wrong value
 uniform uint IN_COLOR_SPACE
 <
   ui_label    = "Input Color Space";
   ui_type     = "combo";
-  ui_items    = "Auto\0SDR sRGB\0SDR Rec.709 Gamma 2.2\0SDR Rec.709 Gamma 2.4\0HDR scRGB\0HDR10 BT.2020 PQ\0";
-  ui_tooltip = "Specify the input color space (Auto doesn't always work right).\nSome SDR games use sRGB gamma and some other use 2.2 gamma, pick the one that looks more correct.\nFor HDR, either pick scRGB or HDR10";
+  ui_items    = "Auto\0SDR sRGB\0SDR Rec.709 Gamma 2.2\0SDR Rec.709 Gamma 2.4\0HDR scRGB\0HDR10 (BT.2020 PQ)\0";
+  ui_tooltip = "Specify the input color space (\"Auto\" is usually correct).\nMost SDR games targeted \"Gamma 2.2\", though some targeted \"sRGB\", pick the one that looks more correct.\nFor HDR, either pick \"scRGB\" or \"HDR10\"";
   ui_category = "Calibration";
 > = DEFAULT_COLOR_SPACE;
 
@@ -56,7 +56,7 @@ uniform uint OUT_COLOR_SPACE
 <
   ui_label    = "Output Color Space";
   ui_type     = "combo";
-  ui_items    = "Auto\0HDR scRGB\0HDR10 BT.2020 PQ\0";
+  ui_items    = "Auto\0HDR scRGB\0HDR10 (BT.2020 PQ)\0Force Input Color Space\0";
   ui_tooltip = "Specify the output color space";
   ui_category = "Advanced calibration";
 > = 0;
@@ -91,10 +91,21 @@ uniform bool HDR_TONEMAP
   ui_category = "HDR tonemapping";
 > = false;
 
-uniform float HDR_MAX_NITS
+uniform float HDR_SOURCE_PEAK_WHITE
+<
+  ui_label = "Input HDR peak white level nits";
+  ui_tooltip = "In case the game was already tonemapping to HDR but targeted a specific peak brightness level that doesn't match your display (e.g. some games don't offer HDR calibration),\nyou can specify the value here, it will help in adjusting the tonemap curve to be more accurate.\nSet to 0 to ignore.";
+  ui_category = "HDR tonemapping";
+  ui_type = "drag";
+  ui_min = 0.f;
+  ui_max = 10000.f;
+  ui_step = 1.f;
+> = 0.f;
+
+uniform float HDR_PEAK_WHITE
 <
   ui_label = "HDR display peak brightness (max nits)";
-  ui_tooltip = "Set it equal or higher the Auto HDR max brightness to avoid double tonemapping";
+  ui_tooltip = "Set it equal or higher than \"Auto HDR target/max brightness\" to avoid double tonemapping. HDR usually doesn't go lower than 400 nits.";
   ui_category = "HDR tonemapping";
   ui_type = "drag";
   ui_min = sRGB_max_nits;
@@ -102,27 +113,16 @@ uniform float HDR_MAX_NITS
   ui_step = 1.f;
 > = 750.f;
 
-uniform float HIGHLIGHTS_SHOULDER_START_ALPHA
+uniform float HDR_HIGHLIGHTS_SHOULDER_START_ALPHA
 <
   ui_label = "Highlights shoulder start alpha";
-  ui_tooltip = "When do we start compressing highlight within your monitor capabilities?";
+  ui_tooltip = "When do we start compressing the highlights to be within the brightness range of your display?\nHigher values will have steeper gradients around highlights and midtones.\nLower values will have a small effect on shadow too, but could look more smooth.";
   ui_category = "HDR tonemapping";
   ui_type = "drag";
   ui_min = 0.f;
   ui_max = 1.f;
   ui_step = 0.01f;
 > = 0.5f;
-
-uniform float HIGHLIGHTS_SHOULDER_POW
-<
-  ui_label = "Highlights shoulder pow";
-  ui_tooltip = "Modulates the highlight compression curve";
-  ui_category = "HDR tonemapping";
-  ui_type = "drag";
-  ui_min = 0.001f;
-  ui_max = 10.f;
-  ui_step = 0.05f;
-> = 1.f;
 
 uniform uint AUTO_HDR_METHOD
 <
@@ -493,15 +493,27 @@ void AdvancedAutoHDR(
     // Avoid doing it if we are doing AutoHDR within the screen brightness range already (even the result might snap based on the condition when we change params).
     if (HDR_TONEMAP && HDRLuminance > 0.0f)
     {
-        const float maxOutputLuminance = HDR_MAX_NITS / sRGB_max_nits;
-        const float highlightsShoulderStart = HIGHLIGHTS_SHOULDER_START_ALPHA * maxOutputLuminance;
-        const float compressedHDRLuminance = lumaCompress(HDRLuminance, maxOutputLuminance, highlightsShoulderStart, HIGHLIGHTS_SHOULDER_POW);
+        const float maxOutputLuminance = HDR_PEAK_WHITE / sRGB_max_nits;
+        const float highlightsShoulderStart = HDR_HIGHLIGHTS_SHOULDER_START_ALPHA * maxOutputLuminance;
+        const float compressedHDRLuminance = luminanceCompress(HDRLuminance, maxOutputLuminance, highlightsShoulderStart, HDR_SOURCE_PEAK_WHITE > 0.f, HDR_SOURCE_PEAK_WHITE / sRGB_max_nits);
         displayMappedColor *= compressedHDRLuminance / HDRLuminance;
     }
 
     displayMappedColor = fixNAN(displayMappedColor);
 
-    if ((OUT_COLOR_SPACE == 0 && inColorSpace == 5) || OUT_COLOR_SPACE == 2)
+    if (OUT_COLOR_SPACE == 3)
+    {
+        if (inColorSpace == 1)
+        {
+            displayMappedColor = linear_to_sRGB_mirrored(displayMappedColor);
+        }
+        else if (inColorSpace == 2 || inColorSpace == 3)
+        {
+            const float gamma = (inColorSpace == 2) ? 2.2f : 2.4f;
+            displayMappedColor = linear_to_gamma_mirrored(displayMappedColor, gamma);
+        }
+    }
+    if (((OUT_COLOR_SPACE == 0 || OUT_COLOR_SPACE == 3) && inColorSpace == 5)  || OUT_COLOR_SPACE == 2)
     {
         displayMappedColor = BT709_to_BT2020(displayMappedColor);
         displayMappedColor = linear_to_PQ(displayMappedColor);
@@ -512,7 +524,7 @@ void AdvancedAutoHDR(
 
 technique AdvancedAutoHDR
 <
-ui_tooltip = "This shader can extrapolate HDR from SDR.\nIt's meant to be used on SDR games with a hook (e.g. DXVK or SpecialK or RenoDX) that is able to replace the game buffers to float16 (scRGB).\nIt also works on games with native HDR, aiding in fixing the lack of tonemapping, highlights or user paper white adjustment setting.";
+ui_tooltip = "This shader can extrapolate HDR from SDR.\nIt's meant to be used on SDR games with a hook (e.g. DXVK or SpecialK or RenoDX) that is able to replace the game buffers to float16 format (scRGB).\nIt also works on games with native HDR, aiding in fixing the lack of tonemapping, highlights or user paper white adjustment setting.\nIn some cases, RESTIR can help move this shader to draw before the game's UI drew.";
 >
 {
     pass AdvancedAutoHDR
