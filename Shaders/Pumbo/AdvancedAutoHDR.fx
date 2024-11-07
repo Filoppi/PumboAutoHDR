@@ -524,7 +524,7 @@ void AdvancedAutoHDR(
 
 technique AdvancedAutoHDR
 <
-ui_tooltip = "This shader can extrapolate HDR from SDR.\nIt's meant to be used on SDR games with a hook (e.g. DXVK or SpecialK or RenoDX) that is able to replace the game buffers to float16 format (scRGB).\nIt also works on games with native HDR, aiding in fixing the lack of tonemapping, highlights or user paper white adjustment setting.\nIn some cases, RESTIR can help move this shader to draw before the game's UI drew.";
+ui_tooltip = "This shader can extrapolate HDR from SDR.\nIt's meant to be used on SDR games with a hook (e.g. DXVK or SpecialK or RenoDX) that is able to replace the game buffers to float16 format (scRGB).\nIt also works on games with native HDR, aiding in fixing the lack of tonemapping, highlights or user paper white adjustment setting.\nIn some cases, REST can help move this shader to draw before the game's UI drew.";
 >
 {
     pass AdvancedAutoHDR
