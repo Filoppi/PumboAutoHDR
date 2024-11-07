@@ -108,7 +108,7 @@ void ConvertColorSpace(
 
 technique ConvertColorSpace
 <
-ui_tooltip = "This shader can convert between a source and a target color space, transfer functions etc (basically, video standards).\nYOU DO NOT NEED THIS under normal circumstances, but it can be useful in case you are using AdvancedAutoHDR with RESTIR.";
+ui_tooltip = "This shader can convert between a source and a target color space, transfer functions etc (basically, video standards).\nYOU DO NOT NEED THIS under normal circumstances, but it can be useful in case you are using AdvancedAutoHDR with REST.";
 >
 {
     pass ConvertColorSpace
