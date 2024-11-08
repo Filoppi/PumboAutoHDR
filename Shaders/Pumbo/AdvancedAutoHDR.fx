@@ -188,7 +188,7 @@ uniform float TONEMAPPER_WHITE_LEVEL
 uniform float INVERSE_TONEMAP_COLOR_CONSERVATION
 <
   ui_label = "Inverse tonemapper color conservation";
-  ui_tooltip = "This makes the inverse tonemapped color gradually restore the SDR source image color (hue and saturation/chroma), while retaining its increased perceived brightness";
+  ui_tooltip = "This makes the inverse tonemapped color gradually restore the SDR source image color (hue and saturation/chroma), while retaining its increased perceived brightness.\nAvoid setting this too close to one as it could cause problems in some scenes";
   ui_category = "Inverse tone mapping (alternative SDR->HDR)";
   ui_type = "drag";
   ui_min = 0.f;
@@ -375,7 +375,7 @@ void AdvancedAutoHDR(
         // Restore part of the original color "saturation" and "hue", but keep the new luminance
         if (INVERSE_TONEMAP_COLOR_CONSERVATION != 0.f)
         {
-#if 1 //TODO: test... is this working?
+#if 1 //TODO: test... is this working? It doesn't seem to look that good
             fixTonemapColor = RestoreHue(fixTonemapColor, fineTunedColor, INVERSE_TONEMAP_COLOR_CONSERVATION);
 #else //TODO: delete old implementation?
             //TODO: experiment with this more (separate hue and chroma sliders?)
@@ -386,7 +386,6 @@ void AdvancedAutoHDR(
 #endif
         }
     }
-
     brightnessScale *= SDR_WHITE_LEVEL_NITS / sRGB_max_nits;
 
     // Auto HDR
@@ -397,6 +396,7 @@ void AdvancedAutoHDR(
         float3 SDRRatio = 0.f;
         float3 divisor = 1.f;
         float autoHDRShoulderPow = AUTO_HDR_SHOULDER_POW;
+        float autoHDRBrightnessScale = brightnessScale;
         
         //TODO: delete all except luminance, average and channel? People seem to like weird ones
         
@@ -431,7 +431,9 @@ void AdvancedAutoHDR(
         {
             autoHDRColor = linear_srgb_to_oklab(autoHDRColor);
             SDRRatio = autoHDRColor[0]; // OKLAB lightness
-            autoHDRShoulderPow *= autoHDRShoulderPow; // sqr
+            // Some "random" modifier to align the results to the other AutoHDR methods
+            autoHDRShoulderPow = pow(autoHDRShoulderPow, 2.f);
+            autoHDRBrightnessScale = pow(autoHDRBrightnessScale, 1.667f); // This adjusts the peak brightness
         }
         // Old OKLAB method, use AUTO_HDR_METHOD 5 instead.
         // Note: This seems to be almost identical to the method by luminance (though with slightly different params), so maybe it's useless.
@@ -441,7 +443,7 @@ void AdvancedAutoHDR(
         }
         
         SDRRatio = max(SDRRatio, AUTO_HDR_SHOULDER_START_ALPHA);
-        const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / brightnessScale, sRGB_max_nits) / sRGB_max_nits;
+        const float autoHDRMaxWhite = max(AUTO_HDR_MAX_NITS / autoHDRBrightnessScale, sRGB_max_nits) / sRGB_max_nits;
         const float3 autoHDRShoulderRatio = 1.f - (max(1.f - SDRRatio, 0.f) / (1.f - AUTO_HDR_SHOULDER_START_ALPHA));
         const float3 autoHDRExtraRatio = (pow(max(autoHDRShoulderRatio, 0.f), autoHDRShoulderPow) * (autoHDRMaxWhite - 1.f)) / divisor;
         const float3 autoHDRTotalRatio = SDRRatio + autoHDRExtraRatio;
@@ -449,16 +451,27 @@ void AdvancedAutoHDR(
         if (AUTO_HDR_METHOD == 5) // Only scale lightness channel in OKLAB
         {
             autoHDRColor[0] *= SDRRatio[0] != 0.f ? (autoHDRTotalRatio[0] / SDRRatio[0]) : 1.f;
+            autoHDRColor = oklab_to_linear_srgb(autoHDRColor);
         }
         else
         {
             autoHDRColor *= SDRRatio != 0.f ? (autoHDRTotalRatio / SDRRatio) : 1.f;
         }
 
-        if (AUTO_HDR_METHOD == 5)
+#if 0 //TODO: test this and enable it if it looks good (or add a new method to do AutoHDR by channel with hue/chroma restoration)
+        if (AUTO_HDR_METHOD == 3)
         {
-            autoHDRColor = oklab_to_linear_srgb(autoHDRColor);
+            const float3 preAutoHDROklch = linear_srgb_to_oklch(fixTonemapColor);
+            float3 postAutoHDROklch = linear_srgb_to_oklch(autoHDRColor);
+            postAutoHDROklch.yz = lerp(postAutoHDROklch.yz, preAutoHDROklch.yz, 1.f);
+            autoHDRColor = oklch_to_linear_srgb(postAutoHDROklch);
         }
+#elif 0 //This doesn't seem to look right (e.g. Red Dead Redeption sky), needs more investigation
+        if (AUTO_HDR_METHOD == 3 && INVERSE_TONEMAP_COLOR_CONSERVATION > 0)
+        {
+            autoHDRColor = RestoreHue(autoHDRColor, fixTonemapColor, INVERSE_TONEMAP_COLOR_CONSERVATION);
+        }
+#endif
     }
     
     fineTunedColor = autoHDRColor;
