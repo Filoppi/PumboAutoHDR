@@ -497,7 +497,7 @@ void AdvancedAutoHDR(
 
     float3 displayMappedColor = fineTunedColor;
 
-    // Note: this is influenced by the AutoHDR params and by "brightnessScale".
+    // Note: this is influenced by the AutoHDR params.
     // Theoretically this should be done when the image is fully in linear space,
     // like 0-10k nits or more, before tonemapping, but we can't recreate such image from the data we have.
     if (EXTRA_HDR_SATURATION > 0.f)
